@@ -1,5 +1,16 @@
 # brutus
 
+# additional tasks
+- agree on formatting and on how to enforce
+
+# so far
+
+## backend
+python - flask
+
+## frontend
+react - vite
+
 
 # Learning
 

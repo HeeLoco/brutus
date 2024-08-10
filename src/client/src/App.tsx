@@ -6,7 +6,7 @@ function App() {
   const [count, setCount] = useState(0);
   const [msg, setMsg] = useState('');
   useEffect(() => {
-    fetch('/api/').then((res) => res.text().then(text => setMsg(text)))
+    fetch('/api/storage/config').then((res) => res.json().then(text => console.log(text)))
   }, []);
   return (
     <>
