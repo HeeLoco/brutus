@@ -11,6 +11,12 @@ python - flask
 ## frontend
 react - vite
 
+## running
+Two terminals:
+- client: `npm run dev` in client folder
+- server: 
+  - once `venv\Scripts\activate` in server folder to activate venv in this terminal
+  - `py server.py` in server folder
 
 # Learning
 
