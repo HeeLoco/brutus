@@ -12,7 +12,7 @@ def get_input():
             "display": "Name",
             "required": True,
             "type": "string",            
-            "validation": "\w\w\w+", # at least three characters, nothing special
+            "validation": "\\w\\w\\w+", # at least three characters, nothing special
         },
         {
             "id": "subscription",
@@ -22,3 +22,6 @@ def get_input():
             "validation": "" # guid?
         }
     ]
+
+if(__name__ == "__main__"):
+    print("this is a library, but you can execute it as if it were a script, e.g. for testing?")
