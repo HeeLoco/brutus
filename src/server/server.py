@@ -11,21 +11,22 @@ def hello():
 
 @app.route("/api/get_endpoints")
 def get_endpoints():
-    return {
-        "povider": {
-            "id": "Azure",
-            "display_name": "Azure",
-            "endpoints": [
+    return [
+        {
+            "Id": "Azure",
+            "Name": "Azure",
+            "Entities": [
                 {
-                    "id": "adls",
+                    "Id": "adls",
                     "Name": "Data Lake Storage",
-                    "POST": "/api/storage/create",
-                    "GET": "/api/storage/config",
+                    "Create": "/api/storage/create",
+                    "CreateMethod": "POST",
+                    "GetConfig": "/api/storage/config",
+                    "GetConfigMethod": "GET",
                 }
             ]
-        },
-
-    }
+        }
+    ]
 
 
 @app.route("/api/storage/create", methods=["POST"])

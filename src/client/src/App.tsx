@@ -1,38 +1,29 @@
 import { useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { Toaster } from 'react-hot-toast';
+import BrutusNavbar from './features/BrutusNavbar';
+import DefaultPage from './pages/DefaultPage/DefaultPage';
 
-function App() {
-  const [count, setCount] = useState(0);
-  const [msg, setMsg] = useState('');
-  useEffect(() => {
-    fetch('/api/storage/config').then((res) => res.json().then(text => console.log(text)))
-  }, []);
-  return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <h1>{msg}</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+function initializeApp() {
+  Promise.all([
+
+  ])
 }
 
-export default App
+function App() {
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    initializeApp();
+    setInitialized(true);
+  }, []);
+
+  return (
+    <div className='flex flex-col gap-3 w-screen h-screen'>
+      <BrutusNavbar />
+      {initialized ? <DefaultPage /> : "Loading..."}
+      <Toaster />
+    </div>
+  );
+}
+
+export default App;
