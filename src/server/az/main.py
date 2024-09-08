@@ -23,7 +23,7 @@ app = FastAPI()
 # subscription_id = "xxx" #os.environ["AZURE_SUBSCRIPTION_ID"]
 
 # Obtain the management object for resources.
-# resource_client = ResourceManagementClient(credential, subscription_id)
+# resource_client = ResourceManagementClient(credential, subscription_id, "2022-09-01")
 
 @app.get("/test/{test_endpoint}")
 def tests(test_endpoint: testEndpoints):
