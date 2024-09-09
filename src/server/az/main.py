@@ -13,13 +13,14 @@ from library.resource_groups import resource_group_create_or_update, resource_gr
 class testEndpoints(str, Enum):
     me         = "me"
     connection = "connection"
+    clientinfo = "clientdata"
     # all        = "all"
 
 class resourceClientInfo(BaseModel):
     credential: str
     subscription_id: str 
     api_version: str = "2022-09-01"
-    # base_url: str = "https://management.azure.com"
+    base_url: str = "https://management.azure.com"
 
 app = FastAPI()
 
@@ -33,21 +34,34 @@ app = FastAPI()
 #  resource_client = ResourceManagementClient(credential, subscription_id, "2022-09-01", )
 
 def gen_resource_client(resource_client_info: resourceClientInfo):
-    return ResourceManagementClient(resource_client_info.credential, resource_client_info.subscription_id, resource_client_info.api_version )
+    #custom validation(s)
+    return ResourceManagementClient(resource_client_info.credential, resource_client_info.subscription_id, resource_client_info.api_version, resource_client_info.base_url)
 
-@app.get("/test/{test_endpoint}")
-def tests(test_endpoint: testEndpoints):
+@app.post("/test/{test_endpoint}")
+def tests(test_endpoint: testEndpoints, resource_client_info: resourceClientInfo | None = None):
     match test_endpoint:
         case testEndpoints.me:
             return {"result":"nice"}
         
         case testEndpoints.connection:
+            #test connection(s)
             return {"connected":True}
+        
+        case testEndpoints.clientinfo:
+            if not resource_client_info:
+                return {"result":"no body"}
+            #send back plain 
+            return resource_client_info.model_dump()
+        
     # if test_endpoint is testEndpoints.me:
     #     return {"result":"nice"}
     
     # if test_endpoint is testEndpoints.connection:
     #     return {"connected":True}
+
+
+
+
 
 @app.post("/resource_group/create")
 def create_resource_group(name, location, tags={}):
