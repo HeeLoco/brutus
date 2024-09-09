@@ -5,6 +5,7 @@ from azure.identity import DefaultAzureCredential
 from azure.mgmt.resource import ResourceManagementClient
 from enum import Enum
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 #local
 from library.resource_groups import resource_group_create_or_update, resource_group_show
@@ -13,6 +14,12 @@ class testEndpoints(str, Enum):
     me         = "me"
     connection = "connection"
     # all        = "all"
+
+class resourceClientInfo(BaseModel):
+    credential: str
+    subscription_id: str 
+    api_version: str = "2022-09-01"
+    # base_url: str = "https://management.azure.com"
 
 app = FastAPI()
 
@@ -23,7 +30,10 @@ app = FastAPI()
 # subscription_id = "xxx" #os.environ["AZURE_SUBSCRIPTION_ID"]
 
 # Obtain the management object for resources.
-# resource_client = ResourceManagementClient(credential, subscription_id, "2022-09-01")
+#  resource_client = ResourceManagementClient(credential, subscription_id, "2022-09-01", )
+
+def gen_resource_client(resource_client_info: resourceClientInfo):
+    return ResourceManagementClient(resource_client_info.credential, resource_client_info.subscription_id, resource_client_info.api_version )
 
 @app.get("/test/{test_endpoint}")
 def tests(test_endpoint: testEndpoints):
