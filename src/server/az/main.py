@@ -35,10 +35,18 @@ app = FastAPI()
 
 def gen_resource_client(resource_client_info: resourceClientInfo):
     #custom validation(s)
-    return ResourceManagementClient(resource_client_info.credential, resource_client_info.subscription_id, resource_client_info.api_version, resource_client_info.base_url)
+    return ResourceManagementClient( resource_client_info.credential,
+                                     resource_client_info.subscription_id,
+                                     resource_client_info.api_version,
+                                     resource_client_info.base_url
+                                    )
 
-@app.post("/test/{test_endpoint}", tags=["test"])
-def tests(test_endpoint: testEndpoints, resource_client_info: resourceClientInfo | None = None):
+@app.post( "/test/{test_endpoint}", 
+           tags=["test"]
+         )
+def tests( test_endpoint: testEndpoints,
+           resource_client_info: resourceClientInfo | None = None
+        ):
     """
     Endpoints for testing purposes are:
 
@@ -73,7 +81,8 @@ def tests(test_endpoint: testEndpoints, resource_client_info: resourceClientInfo
 
 @app.post("/resource_group/create", 
           tags=["resource group"],
-          response_description="The created group",)
+          response_description="The created group",
+         )
 def create_resource_group(name, location, tags={}):
     return resource_group_create_or_update(name, location, resource_client, tags)
 

@@ -1,4 +1,8 @@
-def resource_group_create_or_update(name, location, resource_client, tags={}):
+def resource_group_create_or_update( name, 
+                                     location,
+                                     resource_client,
+                                     tags={}
+                                    ):
     rg_result = resource_client.resource_groups.create_or_update(
         {name}, 
         {
