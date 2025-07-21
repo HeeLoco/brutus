@@ -1,4 +1,0 @@
-uvicorn
-fastapi
-azure-identity
-azure-mgmt-resource
