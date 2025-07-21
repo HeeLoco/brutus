@@ -8,16 +8,19 @@ This project implements a clean **multi-cloud, multi-language architecture** des
 
 ```
 src/
-└── backend/
-    ├── go/         # High-performance, concurrent operations
-    ├── python/     # Data processing, ML workflows, rapid prototyping  
-    ├── typescript/ # Complex business logic, enterprise features
-    └── [future]    # aws/, gcp/ for other cloud providers
+├── backend/
+│   ├── go/         # High-performance, concurrent operations
+│   ├── python/     # Data processing, ML workflows, rapid prototyping  
+│   ├── typescript/ # Complex business logic, enterprise features
+│   └── [future]    # aws/, gcp/ for other cloud providers
+└── frontend/
+    ├── vue/        # Vue 3 + Vite frontend with TypeScript
+    └── svelte/     # SvelteKit frontend with TypeScript
 ```
 
-Each language implementation provides the same Azure Resource Management API with different strengths and use cases.
+Each backend language implementation provides the same Azure Resource Management API with different strengths and use cases. The frontend provides two lightweight, containerized options for consuming these APIs.
 
-## 🚀 Language Implementations
+## 🚀 Backend Implementations
 
 ### **Go Implementation** (`src/backend/go/az/`)
 **Best for:** High-performance operations, concurrent processing, microservices
@@ -43,8 +46,27 @@ Each language implementation provides the same Azure Resource Management API wit
 - **Authentication:** Azure DefaultAzureCredential + Service Principal
 - **Features:** Enterprise middleware, Joi validation, Winston logging, rate limiting
 
+## 🎨 Frontend Implementations
+
+### **Vue 3 + Vite** (`src/frontend/vue/`)
+**Best for:** Rapid development, component-based architecture, progressive enhancement
+- **Framework:** Vue 3 with Composition API + Vite build tool
+- **Port:** 5173 (dev), 80 (container)
+- **Strengths:** Small bundle size, excellent developer experience, great TypeScript support
+- **Features:** TypeScript, Vue Router, Pinia state management, Vitest testing
+- **Container:** Multi-stage Docker build with Nginx (~20MB final image)
+
+### **SvelteKit** (`src/frontend/svelte/`)
+**Best for:** Minimal bundle sizes, performance-critical applications
+- **Framework:** SvelteKit with static adapter
+- **Port:** 5173 (dev), 80 (container)
+- **Strengths:** Smallest runtime, compile-time optimization, excellent performance
+- **Features:** TypeScript, file-based routing, static site generation
+- **Container:** Multi-stage Docker build with Nginx (~18MB final image)
+
 ## 📋 Comparison Matrix
 
+### Backend Comparison
 | Feature | **Go** | **Python** | **TypeScript** |
 |---------|---------|------------|----------------|
 | **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
@@ -53,6 +75,16 @@ Each language implementation provides the same Azure Resource Management API wit
 | **Enterprise Features** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 | **Memory Usage** | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
 | **Ecosystem** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+
+### Frontend Comparison
+| Feature | **Vue 3 + Vite** | **SvelteKit** |
+|---------|-------------------|---------------|
+| **Bundle Size** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Development Speed** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Learning Curve** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Runtime Performance** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Container Size** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **TypeScript Support** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 
 ## 🛠️ Quick Start
 
@@ -144,6 +176,60 @@ npm run build && npm start
 
 **Available at:** http://localhost:8000
 
+### 🎨 Frontend Setup
+
+#### Vue 3 + Vite Frontend
+
+```bash
+cd src/frontend/vue
+
+# Install dependencies
+npm install
+
+# Setup environment
+cp .env.example .env
+# Edit .env to point to your preferred backend
+
+# Run development server
+npm run dev
+```
+
+**Available at:** http://localhost:5173
+
+#### SvelteKit Frontend
+
+```bash
+cd src/frontend/svelte
+
+# Install dependencies  
+npm install
+
+# Setup environment
+cp .env.example .env
+# Edit .env to point to your preferred backend
+
+# Run development server
+npm run dev
+```
+
+**Available at:** http://localhost:5173
+
+#### Frontend Container Deployment
+
+Both frontends include Docker support:
+
+```bash
+# Vue frontend
+cd src/frontend/vue
+docker build -t brutus-vue-frontend .
+docker run -p 80:80 brutus-vue-frontend
+
+# SvelteKit frontend  
+cd src/frontend/svelte
+docker build -t brutus-svelte-frontend .
+docker run -p 80:80 brutus-svelte-frontend
+```
+
 ## 🔗 API Endpoints
 
 All implementations provide the same REST API endpoints:
@@ -209,26 +295,40 @@ For production deployment:
 
 ## 📊 When to Use Which Implementation
 
-### **Choose Go when:**
+### **Choose Go Backend when:**
 - Maximum performance is critical
 - Building microservices
 - Need excellent concurrency
 - Memory usage is a concern
 - Building CLI tools
 
-### **Choose Python when:**
+### **Choose Python Backend when:**
 - Rapid prototyping and development
 - Data processing and analysis
 - ML/AI integration needed
 - Working with scientific computing
 - Team has strong Python experience
 
-### **Choose TypeScript when:**
+### **Choose TypeScript Backend when:**
 - Complex business logic
 - Enterprise-grade features needed
 - Type safety is important
 - Real-time features required
 - Frontend and backend team overlap
+
+### **Choose Vue 3 + Vite Frontend when:**
+- Building component-based applications
+- Need rapid development with great DX
+- Want comprehensive ecosystem and community
+- Working with complex state management
+- Team has Vue/React experience
+
+### **Choose SvelteKit Frontend when:**
+- Performance is critical (smallest bundles)
+- Building content-focused applications
+- Want compile-time optimization
+- Prefer simpler, less verbose syntax
+- Need excellent SEO and static generation
 
 ## 🔄 Multi-Language Benefits
 
@@ -274,11 +374,21 @@ Detailed documentation for each implementation:
 
 ## 🔮 Future Roadmap
 
+### Backend Expansion
 - **AWS Support:** `src/backend/*/aws/` implementations
 - **Google Cloud Platform:** `src/backend/*/gcp/` implementations
 - **Additional Languages:** Rust, Java, C# implementations
 - **Advanced Features:** GraphQL APIs, WebSocket support, event streaming
-- **DevOps:** Kubernetes manifests, Terraform modules, CI/CD pipelines
+
+### Frontend Enhancements
+- **Additional Frameworks:** React, Angular, Solid.js implementations
+- **Mobile Apps:** React Native, Flutter companion apps
+- **Advanced Features:** Real-time updates, offline support, PWA capabilities
+
+### DevOps & Infrastructure
+- **Container Orchestration:** Kubernetes manifests, Helm charts
+- **Infrastructure as Code:** Terraform modules, Pulumi templates
+- **CI/CD Pipelines:** GitHub Actions, Azure DevOps workflows
 
 ---
 
