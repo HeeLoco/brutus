@@ -43,26 +43,12 @@ dev() {
     check_docker
     
     print_warning "This will start the Vue frontend in development mode with hot reload"
-    docker-compose --profile dev up --build -d
+    docker-compose -f docker-compose.yml --profile dev up --build -d
     
     print_success "Development environment started!"
     echo -e "🌐 Vue Frontend: ${BLUE}http://localhost:5173${NC}"
     echo -e "🚀 Go Backend: ${BLUE}http://localhost:8080${NC}"
     echo -e "📊 Health Check: ${BLUE}http://localhost:8080/health${NC}"
-}
-
-# Development with SvelteKit
-dev_svelte() {
-    print_header "Starting SvelteKit Development Environment"
-    check_docker
-    
-    print_warning "This will start the SvelteKit frontend in development mode"
-    docker-compose --profile dev --profile svelte up --build -d
-    
-    print_success "SvelteKit development environment started!"
-    echo -e "🌐 Vue Frontend: ${BLUE}http://localhost:5173${NC}"
-    echo -e "🔥 Svelte Frontend: ${BLUE}http://localhost:5174${NC}"
-    echo -e "🚀 Go Backend: ${BLUE}http://localhost:8080${NC}"
 }
 
 # Production Environment
@@ -71,7 +57,7 @@ prod() {
     check_docker
     
     print_warning "This will build and start the production environment"
-    docker-compose --profile prod up --build -d
+    docker-compose -f docker-compose.yml --profile prod up --build -d
     
     print_success "Production environment started!"
     echo -e "🌐 Frontend: ${BLUE}http://localhost${NC}"
@@ -84,7 +70,7 @@ build() {
     check_docker
     
     print_warning "Building all Docker images..."
-    docker-compose build
+    docker-compose -f docker-compose.yml build
     
     print_success "All images built successfully!"
 }
@@ -92,8 +78,36 @@ build() {
 # Stop all services
 stop() {
     print_header "Stopping All Services"
-    docker-compose down
+    
+    # Stop services from both compose files
+    print_warning "Stopping services from docker-compose.yml..."
+    docker-compose -f docker-compose.yml down 2>/dev/null || echo "No services from docker-compose.yml to stop"
+    
+    print_warning "Stopping services from compose.yml..."
+    docker-compose -f compose.yml down 2>/dev/null || echo "No services from compose.yml to stop"
+    
+    # Stop any remaining brutus containers
+    print_warning "Stopping any remaining brutus containers..."
+    docker ps --filter "name=brutus" --format "{{.Names}}" | xargs -r docker stop 2>/dev/null || echo "No brutus containers to stop"
+    
     print_success "All services stopped!"
+}
+
+# Force stop all containers (nuclear option)
+force_stop() {
+    print_header "Force Stopping All Containers"
+    
+    print_warning "This will forcefully stop and remove ALL running containers"
+    read -p "Are you sure? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_warning "Force stopping all containers..."
+        docker ps -q | xargs -r docker stop
+        docker ps -a -q | xargs -r docker rm
+        print_success "All containers forcefully stopped and removed!"
+    else
+        print_warning "Force stop cancelled."
+    fi
 }
 
 # Clean up (remove containers, images, volumes)
@@ -103,8 +117,19 @@ clean() {
     read -p "This will remove all containers, images, and volumes. Are you sure? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        docker-compose down -v --rmi all --remove-orphans
+        print_warning "Cleaning up docker-compose.yml services..."
+        docker-compose -f docker-compose.yml down -v --rmi all --remove-orphans 2>/dev/null || echo "No docker-compose.yml services to clean"
+        
+        print_warning "Cleaning up compose.yml services..."
+        docker-compose -f compose.yml down -v --rmi all --remove-orphans 2>/dev/null || echo "No compose.yml services to clean"
+        
+        print_warning "Removing any remaining brutus containers and images..."
+        docker ps -a --filter "name=brutus" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || echo "No brutus containers to remove"
+        docker images --filter "reference=brutus*" --format "{{.Repository}}:{{.Tag}}" | xargs -r docker rmi -f 2>/dev/null || echo "No brutus images to remove"
+        
+        print_warning "General system cleanup..."
         docker system prune -f
+        
         print_success "Cleanup completed!"
     else
         print_warning "Cleanup cancelled."
@@ -116,17 +141,24 @@ logs() {
     service=${1:-}
     if [ -z "$service" ]; then
         print_header "Showing All Logs"
-        docker-compose logs -f
+        docker-compose -f docker-compose.yml logs -f
     else
         print_header "Showing Logs for $service"
-        docker-compose logs -f "$service"
+        docker-compose -f docker-compose.yml logs -f "$service"
     fi
 }
 
 # Show status
 status() {
     print_header "Docker Services Status"
-    docker-compose ps
+    echo "Services from docker-compose.yml:"
+    docker-compose -f docker-compose.yml ps
+    echo
+    echo "Services from compose.yml:"
+    docker-compose -f compose.yml ps 2>/dev/null || echo "No services in compose.yml"
+    echo
+    print_header "All Running Containers"
+    docker ps
     echo
     print_header "Docker Images"
     docker images | grep brutus || echo "No brutus images found"
@@ -152,11 +184,11 @@ help() {
     echo "Usage: $0 <command>"
     echo
     echo "Commands:"
-    echo "  dev          - Start development environment (Vue + Go backend)"
-    echo "  dev-svelte   - Start development with SvelteKit"
+    echo "  dev          - Start development environment (Vue frontend + Go backend)"
     echo "  prod         - Start production environment"
     echo "  build        - Build all Docker images"
-    echo "  stop         - Stop all services"
+    echo "  stop         - Stop all services (handles both compose files)"
+    echo "  force-stop   - Force stop ALL containers (nuclear option)"
     echo "  clean        - Remove all containers, images, and volumes"
     echo "  logs [service] - Show logs (all services or specific service)"
     echo "  status       - Show services and images status"
@@ -166,17 +198,17 @@ help() {
     echo "Examples:"
     echo "  $0 dev                 # Start development"
     echo "  $0 logs frontend-dev   # Show frontend logs"
-    echo "  $0 prod               # Start production"
+    echo "  $0 stop               # Stop all services"
+    echo "  $0 force-stop         # Force stop everything"
     echo "  $0 clean              # Clean everything"
+    echo
+    echo "Note: This script handles both docker-compose.yml and compose.yml files"
 }
 
 # Main script logic
 case "${1:-help}" in
     dev)
         dev
-        ;;
-    dev-svelte)
-        dev_svelte
         ;;
     prod)
         prod
@@ -186,6 +218,9 @@ case "${1:-help}" in
         ;;
     stop)
         stop
+        ;;
+    force-stop)
+        force_stop
         ;;
     clean)
         clean

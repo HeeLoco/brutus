@@ -41,6 +41,15 @@ func (h *TokenResourceHandler) extractBearerToken(c *gin.Context) (string, error
 	return token, nil
 }
 
+// extractSubscriptionID extracts the subscription ID from the X-Azure-Subscription-ID header
+func (h *TokenResourceHandler) extractSubscriptionID(c *gin.Context) (string, error) {
+	subscriptionID := c.GetHeader("X-Azure-Subscription-ID")
+	if subscriptionID == "" {
+		return "", &models.AuthError{Message: "X-Azure-Subscription-ID header is required"}
+	}
+	return subscriptionID, nil
+}
+
 func (h *TokenResourceHandler) ListResourceGroups(c *gin.Context) {
 	token, err := h.extractBearerToken(c)
 	if err != nil {
@@ -48,7 +57,13 @@ func (h *TokenResourceHandler) ListResourceGroups(c *gin.Context) {
 		return
 	}
 
-	resourceGroups, err := h.tokenAzureService.ListResourceGroups(c.Request.Context(), token)
+	subscriptionID, err := h.extractSubscriptionID(c)
+	if err != nil {
+		h.handleAuthError(c, err)
+		return
+	}
+
+	resourceGroups, err := h.tokenAzureService.ListResourceGroups(c.Request.Context(), token, subscriptionID)
 	if err != nil {
 		h.handleError(c, http.StatusInternalServerError, "Failed to list resource groups", err)
 		return
@@ -67,13 +82,19 @@ func (h *TokenResourceHandler) GetResourceGroup(c *gin.Context) {
 		return
 	}
 
+	subscriptionID, err := h.extractSubscriptionID(c)
+	if err != nil {
+		h.handleAuthError(c, err)
+		return
+	}
+
 	name := c.Param("name")
 	if name == "" {
 		h.handleError(c, http.StatusBadRequest, "Resource group name is required", nil)
 		return
 	}
 
-	resourceGroup, err := h.tokenAzureService.GetResourceGroup(c.Request.Context(), token, name)
+	resourceGroup, err := h.tokenAzureService.GetResourceGroup(c.Request.Context(), token, subscriptionID, name)
 	if err != nil {
 		h.handleError(c, http.StatusNotFound, "Resource group not found", err)
 		return
@@ -89,13 +110,19 @@ func (h *TokenResourceHandler) CreateResourceGroup(c *gin.Context) {
 		return
 	}
 
+	subscriptionID, err := h.extractSubscriptionID(c)
+	if err != nil {
+		h.handleAuthError(c, err)
+		return
+	}
+
 	var req models.CreateResourceGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.handleError(c, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
-	resourceGroup, err := h.tokenAzureService.CreateResourceGroup(c.Request.Context(), token, req)
+	resourceGroup, err := h.tokenAzureService.CreateResourceGroup(c.Request.Context(), token, subscriptionID, req)
 	if err != nil {
 		h.handleError(c, http.StatusInternalServerError, "Failed to create resource group", err)
 		return
@@ -106,6 +133,12 @@ func (h *TokenResourceHandler) CreateResourceGroup(c *gin.Context) {
 
 func (h *TokenResourceHandler) UpdateResourceGroup(c *gin.Context) {
 	token, err := h.extractBearerToken(c)
+	if err != nil {
+		h.handleAuthError(c, err)
+		return
+	}
+
+	subscriptionID, err := h.extractSubscriptionID(c)
 	if err != nil {
 		h.handleAuthError(c, err)
 		return
@@ -123,7 +156,7 @@ func (h *TokenResourceHandler) UpdateResourceGroup(c *gin.Context) {
 		return
 	}
 
-	resourceGroup, err := h.tokenAzureService.UpdateResourceGroup(c.Request.Context(), token, name, req)
+	resourceGroup, err := h.tokenAzureService.UpdateResourceGroup(c.Request.Context(), token, subscriptionID, name, req)
 	if err != nil {
 		h.handleError(c, http.StatusInternalServerError, "Failed to update resource group", err)
 		return
@@ -139,13 +172,19 @@ func (h *TokenResourceHandler) DeleteResourceGroup(c *gin.Context) {
 		return
 	}
 
+	subscriptionID, err := h.extractSubscriptionID(c)
+	if err != nil {
+		h.handleAuthError(c, err)
+		return
+	}
+
 	name := c.Param("name")
 	if name == "" {
 		h.handleError(c, http.StatusBadRequest, "Resource group name is required", nil)
 		return
 	}
 
-	err = h.tokenAzureService.DeleteResourceGroup(c.Request.Context(), token, name)
+	err = h.tokenAzureService.DeleteResourceGroup(c.Request.Context(), token, subscriptionID, name)
 	if err != nil {
 		h.handleError(c, http.StatusInternalServerError, "Failed to delete resource group", err)
 		return

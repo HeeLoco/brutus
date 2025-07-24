@@ -32,23 +32,23 @@ func (t *TokenCredential) GetToken(ctx context.Context, options policy.TokenRequ
 }
 
 // TokenBasedAzureService uses user access tokens instead of service credentials
-type TokenBasedAzureService struct {
-	subscriptionID string
+type TokenBasedAzureService struct{}
+
+func NewTokenBasedAzureService() *TokenBasedAzureService {
+	return &TokenBasedAzureService{}
 }
 
-func NewTokenBasedAzureService(subscriptionID string) *TokenBasedAzureService {
-	return &TokenBasedAzureService{
-		subscriptionID: subscriptionID,
-	}
-}
-
-func (s *TokenBasedAzureService) createClientWithToken(accessToken string) (*armresources.ResourceGroupsClient, error) {
+func (s *TokenBasedAzureService) createClientWithToken(accessToken, subscriptionID string) (*armresources.ResourceGroupsClient, error) {
 	if accessToken == "" {
 		return nil, fmt.Errorf("access token is required")
 	}
+	
+	if subscriptionID == "" {
+		return nil, fmt.Errorf("subscription ID is required")
+	}
 
 	cred := NewTokenCredential(accessToken)
-	client, err := armresources.NewResourceGroupsClient(s.subscriptionID, cred, nil)
+	client, err := armresources.NewResourceGroupsClient(subscriptionID, cred, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource groups client with user token: %w", err)
 	}
@@ -56,8 +56,8 @@ func (s *TokenBasedAzureService) createClientWithToken(accessToken string) (*arm
 	return client, nil
 }
 
-func (s *TokenBasedAzureService) ListResourceGroups(ctx context.Context, accessToken string) ([]models.ResourceGroup, error) {
-	client, err := s.createClientWithToken(accessToken)
+func (s *TokenBasedAzureService) ListResourceGroups(ctx context.Context, accessToken, subscriptionID string) ([]models.ResourceGroup, error) {
+	client, err := s.createClientWithToken(accessToken, subscriptionID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +84,8 @@ func (s *TokenBasedAzureService) ListResourceGroups(ctx context.Context, accessT
 	return resourceGroups, nil
 }
 
-func (s *TokenBasedAzureService) GetResourceGroup(ctx context.Context, accessToken, name string) (*models.ResourceGroup, error) {
-	client, err := s.createClientWithToken(accessToken)
+func (s *TokenBasedAzureService) GetResourceGroup(ctx context.Context, accessToken, subscriptionID, name string) (*models.ResourceGroup, error) {
+	client, err := s.createClientWithToken(accessToken, subscriptionID)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +103,8 @@ func (s *TokenBasedAzureService) GetResourceGroup(ctx context.Context, accessTok
 	}, nil
 }
 
-func (s *TokenBasedAzureService) CreateResourceGroup(ctx context.Context, accessToken string, req models.CreateResourceGroupRequest) (*models.ResourceGroup, error) {
-	client, err := s.createClientWithToken(accessToken)
+func (s *TokenBasedAzureService) CreateResourceGroup(ctx context.Context, accessToken, subscriptionID string, req models.CreateResourceGroupRequest) (*models.ResourceGroup, error) {
+	client, err := s.createClientWithToken(accessToken, subscriptionID)
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +127,8 @@ func (s *TokenBasedAzureService) CreateResourceGroup(ctx context.Context, access
 	}, nil
 }
 
-func (s *TokenBasedAzureService) UpdateResourceGroup(ctx context.Context, accessToken, name string, req models.UpdateResourceGroupRequest) (*models.ResourceGroup, error) {
-	client, err := s.createClientWithToken(accessToken)
+func (s *TokenBasedAzureService) UpdateResourceGroup(ctx context.Context, accessToken, subscriptionID, name string, req models.UpdateResourceGroupRequest) (*models.ResourceGroup, error) {
+	client, err := s.createClientWithToken(accessToken, subscriptionID)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +150,8 @@ func (s *TokenBasedAzureService) UpdateResourceGroup(ctx context.Context, access
 	}, nil
 }
 
-func (s *TokenBasedAzureService) DeleteResourceGroup(ctx context.Context, accessToken, name string) error {
-	client, err := s.createClientWithToken(accessToken)
+func (s *TokenBasedAzureService) DeleteResourceGroup(ctx context.Context, accessToken, subscriptionID, name string) error {
+	client, err := s.createClientWithToken(accessToken, subscriptionID)
 	if err != nil {
 		return err
 	}
@@ -167,4 +167,39 @@ func (s *TokenBasedAzureService) DeleteResourceGroup(ctx context.Context, access
 	}
 
 	return nil
+}
+
+// Helper functions for converting Azure SDK types
+func getStringValue(ptr *string) string {
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
+}
+
+func convertTags(azureTags map[string]*string) map[string]string {
+	if azureTags == nil {
+		return nil
+	}
+	
+	tags := make(map[string]string)
+	for k, v := range azureTags {
+		if v != nil {
+			tags[k] = *v
+		}
+	}
+	return tags
+}
+
+func convertToAzureTags(tags map[string]string) map[string]*string {
+	if tags == nil {
+		return nil
+	}
+	
+	azureTags := make(map[string]*string)
+	for k, v := range tags {
+		value := v // Create a copy to get pointer
+		azureTags[k] = &value
+	}
+	return azureTags
 }

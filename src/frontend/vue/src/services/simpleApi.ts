@@ -124,6 +124,9 @@ export class SimpleApiService {
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
+
+    // Add subscription ID header for backend to know which subscription to use
+    headers['X-Azure-Subscription-ID'] = this.subscriptionId;
     
     const response = await fetch(url, {
       headers,

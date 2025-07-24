@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 // LogLevel represents the severity level of a log entry
 type LogLevel string
 

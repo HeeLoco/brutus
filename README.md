@@ -14,11 +14,10 @@ src/
 │   ├── typescript/ # Complex business logic, enterprise features
 │   └── [future]    # aws/, gcp/ for other cloud providers
 └── frontend/
-    ├── vue/        # Vue 3 + Vite frontend with TypeScript
-    └── svelte/     # SvelteKit frontend with TypeScript
+    └── vue/        # Vue 3 + Vite frontend with TypeScript
 ```
 
-Each backend language implementation provides the same Azure Resource Management API with different strengths and use cases. The frontend provides two lightweight, containerized options for consuming these APIs.
+Each backend language implementation provides the same Azure Resource Management API with different strengths and use cases. The Vue frontend provides a modern, containerized interface for consuming these APIs.
 
 ## 🚀 Backend Implementations
 
@@ -46,23 +45,16 @@ Each backend language implementation provides the same Azure Resource Management
 - **Authentication:** Azure DefaultAzureCredential + Service Principal
 - **Features:** Enterprise middleware, Joi validation, Winston logging, rate limiting
 
-## 🎨 Frontend Implementations
+## 🎨 Frontend Implementation
 
 ### **Vue 3 + Vite** (`src/frontend/vue/`)
-**Best for:** Rapid development, component-based architecture, progressive enhancement
+**Modern web interface for Azure Resource Management**
 - **Framework:** Vue 3 with Composition API + Vite build tool
 - **Port:** 5173 (dev), 80 (container)
-- **Strengths:** Small bundle size, excellent developer experience, great TypeScript support
+- **Authentication:** Azure AD integration with MSAL.js
 - **Features:** TypeScript, Vue Router, Pinia state management, Vitest testing
 - **Container:** Multi-stage Docker build with Nginx (~20MB final image)
-
-### **SvelteKit** (`src/frontend/svelte/`)
-**Best for:** Minimal bundle sizes, performance-critical applications
-- **Framework:** SvelteKit with static adapter
-- **Port:** 5173 (dev), 80 (container)
-- **Strengths:** Smallest runtime, compile-time optimization, excellent performance
-- **Features:** TypeScript, file-based routing, static site generation
-- **Container:** Multi-stage Docker build with Nginx (~18MB final image)
+- **API Integration:** Direct Azure SDK calls and backend API support
 
 ## 📋 Comparison Matrix
 
@@ -76,15 +68,6 @@ Each backend language implementation provides the same Azure Resource Management
 | **Memory Usage** | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
 | **Ecosystem** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 
-### Frontend Comparison
-| Feature | **Vue 3 + Vite** | **SvelteKit** |
-|---------|-------------------|---------------|
-| **Bundle Size** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Development Speed** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Learning Curve** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Runtime Performance** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Container Size** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **TypeScript Support** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
 
 ## 🛠️ Quick Start
 
@@ -96,22 +79,21 @@ Each backend language implementation provides the same Azure Resource Management
 
 ### Environment Setup
 
-All implementations use the same environment variables:
+For **frontend authentication** (recommended), **no Azure environment variables are needed**:
 
 ```bash
-# Required
-AZURE_SUBSCRIPTION_ID="your-subscription-id"
-
-# Optional (uses DefaultAzureCredential if not provided)
-AZURE_TENANT_ID="your-tenant-id"
-AZURE_CLIENT_ID="your-client-id" 
-AZURE_CLIENT_SECRET="your-client-secret"
-
 # Server configuration (optional)
 PORT=8000  # or 8080 for Go
 HOST=0.0.0.0
 DEBUG=false
 ```
+
+The backends are configured for **frontend authentication** where:
+- Users authenticate directly with Azure AD through the frontend (MSAL.js)
+- Users enter their subscription ID in the frontend interface
+- Frontend sends user access tokens AND subscription ID to backend APIs
+- Backend uses these tokens to make Azure API calls on behalf of the user
+- **No Azure credentials or configuration needed in backend!**
 
 ### 🐹 Go Setup
 
@@ -196,38 +178,44 @@ npm run dev
 
 **Available at:** http://localhost:5173
 
-#### SvelteKit Frontend
 
+### 🐳 Docker Deployment (Recommended)
+
+**New to Docker?** Check our beginner guides:
+- 📚 **[Docker Quick Start](docs/DOCKER_QUICK_START.md)** - Get running in 3 minutes
+- 📖 **[Complete Docker Guide](docs/DOCKER_GUIDE.md)** - Comprehensive tutorial
+
+#### Quick Start with Docker
 ```bash
-cd src/frontend/svelte
+# Start development environment (Vue + Go backend)
+./scripts/docker-scripts.sh dev
 
-# Install dependencies  
-npm install
+# Access applications:
+# - Vue Frontend: http://localhost:5173
+# - Go Backend: http://localhost:8080
 
-# Setup environment
-cp .env.example .env
-# Edit .env to point to your preferred backend
+# View logs
+./scripts/docker-scripts.sh logs
 
-# Run development server
-npm run dev
+# Stop everything
+./scripts/docker-scripts.sh stop
 ```
 
-**Available at:** http://localhost:5173
+#### Available Docker Commands
+```bash
+./scripts/docker-scripts.sh dev         # Development mode (Vue + Go backend)
+./scripts/docker-scripts.sh prod        # Production mode  
+./scripts/docker-scripts.sh build       # Build images only
+./scripts/docker-scripts.sh status      # Show running services
+./scripts/docker-scripts.sh help        # Show all commands
+```
 
-#### Frontend Container Deployment
-
-Both frontends include Docker support:
-
+#### Manual Docker Build (Advanced)
 ```bash
 # Vue frontend
 cd src/frontend/vue
 docker build -t brutus-vue-frontend .
 docker run -p 80:80 brutus-vue-frontend
-
-# SvelteKit frontend  
-cd src/frontend/svelte
-docker build -t brutus-svelte-frontend .
-docker run -p 80:80 brutus-svelte-frontend
 ```
 
 ## 🔗 API Endpoints
@@ -262,15 +250,21 @@ Content-Type: application/json
 
 ## 🔒 Authentication
 
-All implementations support multiple Azure authentication methods:
+The application uses **frontend authentication** for better security and user experience:
 
-1. **Service Principal** (recommended for production)
-   - Set `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`
-2. **Managed Identity** (for Azure-hosted applications)
-3. **Azure CLI** (for development)
-4. **Visual Studio Code** (for development)
+### **Frontend Authentication (Current Implementation)**
+- Users log in directly to Azure AD through the frontend (MSAL.js)
+- Frontend obtains user access tokens and sends them to backend APIs
+- Backend uses user tokens to access Azure resources **on behalf of the user**
+- Only requires `AZURE_SUBSCRIPTION_ID` in backend configuration
+- Users see their own Azure resources based on their Azure AD permissions
 
-If service principal credentials are not provided, all implementations automatically fall back to Azure DefaultAzureCredential.
+### **Benefits of Frontend Authentication:**
+- ✅ No service principal secrets stored in backend
+- ✅ Users authenticate with their own Azure AD credentials  
+- ✅ Fine-grained access control based on user permissions
+- ✅ Better security posture - no shared credentials
+- ✅ Users can only access resources they have permission to
 
 ## 🏢 Production Deployment
 

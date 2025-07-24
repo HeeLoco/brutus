@@ -5,20 +5,12 @@ import (
 )
 
 type Config struct {
-	Port           string
-	SubscriptionID string
-	TenantID       string
-	ClientID       string
-	ClientSecret   string
+	Port string
 }
 
 func Load() *Config {
 	return &Config{
-		Port:           getEnvOrDefault("PORT", "8080"),
-		SubscriptionID: getEnvOrDefault("AZURE_SUBSCRIPTION_ID", ""),
-		TenantID:       getEnvOrDefault("AZURE_TENANT_ID", ""),
-		ClientID:       getEnvOrDefault("AZURE_CLIENT_ID", ""),
-		ClientSecret:   getEnvOrDefault("AZURE_CLIENT_SECRET", ""),
+		Port: getEnvOrDefault("PORT", "8080"),
 	}
 }
 

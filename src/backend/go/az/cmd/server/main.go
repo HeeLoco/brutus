@@ -17,7 +17,7 @@ func main() {
 	cfg := configs.Load()
 
 	// Initialize token-based Azure service (uses user tokens instead of service credentials)
-	tokenAzureService := services.NewTokenBasedAzureService(cfg.SubscriptionID)
+	tokenAzureService := services.NewTokenBasedAzureService()
 
 	// Initialize Gin router
 	router := gin.Default()

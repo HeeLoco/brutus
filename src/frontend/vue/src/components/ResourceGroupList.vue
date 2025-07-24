@@ -275,7 +275,7 @@ const createResourceGroup = async () => {
     closeCreateModal()
     await refreshResourceGroups()
   } catch (err) {
-    logger.logError(err, 'Failed to create resource group', { requestName: request.name })
+    logger.logError(err, 'Failed to create resource group', { requestName: createForm.value.name })
     error.value = err instanceof Error ? err.message : 'Failed to create resource group'
   } finally {
     creating.value = false
