@@ -4,7 +4,7 @@ services:
     # args:
     #   - SOURCE_PATH=src/server/az/
       context: ./
-      dockerfile: ./Dockerfile.server.az
+      dockerfile: ./Dockerfile.backend.python.az
     ports:
       - "8000:8000"
     image: az:0.0.1-freshAssFuck

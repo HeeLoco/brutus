@@ -1,0 +1,14 @@
+# Web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Azure SDK
+azure-identity==1.15.0
+azure-mgmt-resource==23.1.0b2
+
+# Configuration and validation
+pydantic==2.5.1
+pydantic-settings==2.1.0
+
+# Additional dependencies
+python-multipart==0.0.6  # For form data handling if needed
