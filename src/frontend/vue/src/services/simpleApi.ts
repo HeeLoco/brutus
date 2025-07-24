@@ -1,3 +1,6 @@
+// Fixed JSON parsing for DELETE operations - v2
+import { logger } from './logger'
+
 export interface ResourceGroup {
   id?: string;
   name?: string;
@@ -84,7 +87,28 @@ export class SimpleApiService {
       throw new Error(`Azure API Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    return response.json();
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+    
+    // If there's no content or it's not JSON, return empty object
+    if (contentLength === '0' || !contentType?.includes('application/json')) {
+      return {};
+    }
+
+    // Try to parse JSON, but handle empty responses gracefully
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      logger.debug('Azure API returned empty response - this is normal for DELETE operations');
+      return {};
+    }
+    
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      logger.warn('Failed to parse Azure API response as JSON', { responseText: text });
+      return {};
+    }
   }
 
   // Backend API calls (with user token)
@@ -110,7 +134,28 @@ export class SimpleApiService {
       throw new Error(`Backend API Error: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+    
+    // If there's no content or it's not JSON, return empty object
+    if (contentLength === '0' || !contentType?.includes('application/json')) {
+      return {};
+    }
+
+    // Try to parse JSON, but handle empty responses gracefully
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      logger.debug('Backend API returned empty response - this is normal for DELETE operations');
+      return {};
+    }
+    
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      logger.warn('Failed to parse backend API response as JSON', { responseText: text });
+      return {};
+    }
   }
 
   async getResourceGroups(): Promise<ResourceGroup[]> {
@@ -127,7 +172,7 @@ export class SimpleApiService {
         return response.value || [];
       }
     } catch (error) {
-      console.error('Failed to fetch resource groups:', error);
+      logger.logError(error, 'Failed to fetch resource groups', { mode: this.mode });
       throw error;
     }
   }
@@ -166,7 +211,7 @@ export class SimpleApiService {
         return response;
       }
     } catch (error) {
-      console.error('Failed to create resource group:', error);
+      logger.logError(error, 'Failed to create resource group', { mode: this.mode, name: data.name });
       throw error;
     }
   }
@@ -192,7 +237,7 @@ export class SimpleApiService {
         });
       }
     } catch (error) {
-      console.error('Failed to delete resource group:', error);
+      logger.logError(error, 'Failed to delete resource group', { mode: this.mode, name });
       throw error;
     }
   }
@@ -213,7 +258,7 @@ export class SimpleApiService {
         return response;
       }
     } catch (error) {
-      console.error('Failed to get resource group:', error);
+      logger.logError(error, 'Failed to get resource group', { mode: this.mode, name });
       throw error;
     }
   }

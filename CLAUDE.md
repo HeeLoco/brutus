@@ -133,6 +133,7 @@ The server will be available on port 8000.
 - **Authentication**: Azure DefaultAzureCredential (supports managed identity, Azure CLI, service principal)
 - **Structure**: Clean architecture with handlers, services, models, and middleware
 - **API Endpoints**: Complete CRUD operations for Azure resource groups
+- **Frontend Logging**: Centralized logging system that receives frontend logs via HTTP API
 - **Dependencies**: Azure SDK for Go (azidentity, armresources)
 
 ### TypeScript Azure Server (`src/backend/typescript/az/`)
@@ -163,6 +164,8 @@ The server will be available on port 8000.
 - `GET /api/v1/resource-groups/{name}` - Get specific resource group
 - `PUT /api/v1/resource-groups/{name}` - Update resource group
 - `DELETE /api/v1/resource-groups/{name}` - Delete resource group
+- `POST /api/v1/logs` - Receive single frontend log entry
+- `POST /api/v1/logs/batch` - Receive batch of frontend log entries
 
 **TypeScript API:**
 - `GET /health` - Health check with detailed Azure connectivity
@@ -172,6 +175,74 @@ The server will be available on port 8000.
 - `PUT /api/v1/resource-groups/{name}` - Update resource group with validation
 - `DELETE /api/v1/resource-groups/{name}` - Delete resource group with confirmation
 
+## Frontend Architecture
+
+### Vue.js Application (`src/frontend/vue/`)
+- **Framework**: Vue 3 with Composition API and TypeScript
+- **Authentication**: MSAL (Microsoft Authentication Library) for Azure AD integration
+- **State Management**: Pinia for centralized state management
+- **API Integration**: Multi-mode API service (Demo, Backend, Azure Direct)
+- **Logging**: Centralized logging service that sends logs to backend containers
+- **Components**: Reactive components with auto-refresh capabilities
+- **Authentication Modes**:
+  - **Demo Mode**: Uses mock data for testing
+  - **Backend Mode**: Communicates through backend APIs
+  - **Azure Direct Mode**: Direct calls to Azure Management APIs using user tokens
+
+### Frontend Logging System
+
+The frontend implements a comprehensive logging system that captures all application events and sends them to container logs for centralized monitoring:
+
+- **Logger Service** (`src/frontend/vue/src/services/logger.ts`): Centralized logging with structured JSON format
+- **Session Tracking**: Unique session IDs for tracing user interactions
+- **Context Enrichment**: Automatic addition of URL, user agent, timestamp, and custom context
+- **Async Transmission**: Non-blocking log transmission to backend
+- **Console Fallback**: Always maintains browser console output for immediate debugging
+- **Error Handling**: Comprehensive error logging with stack traces and context
+
+**Log Viewing:**
+```bash
+# View all container logs
+docker-compose logs -f backend-az
+
+# Filter for frontend logs only
+docker-compose logs backend-az | grep "FRONTEND-LOG"
+
+# Parse frontend logs as JSON
+docker-compose logs backend-az | grep "FRONTEND-LOG" | jq '.'
+```
+
+**Frontend Dependencies**: Vue 3, TypeScript, MSAL, Pinia, Vite
+
 ### Docker Configuration
 - **Dockerfile.server.az**: Python 3.12.3 based container for Azure server
 - **compose.yml**: Defines backend-az service on port 8000
+- **Frontend Logging**: All frontend logs appear in backend container logs with structured JSON format
+
+## Logging and Monitoring
+
+### Frontend Logging
+All frontend application events are captured and sent to backend container logs:
+
+- **Location**: `src/frontend/vue/src/services/logger.ts`
+- **Format**: Structured JSON logs with session tracking
+- **Transmission**: HTTP API to backend (`/api/v1/logs`)
+- **Fallback**: Browser console for immediate debugging
+- **Monitoring**: Container logs accessible via Docker/Kubernetes
+
+### Log Analysis Examples
+```bash
+# View all frontend logs
+docker-compose logs backend-az | grep "FRONTEND-LOG"
+
+# Filter by log level
+docker logs container_id | grep "FRONTEND-LOG" | jq 'select(.level == "error")'
+
+# Track specific user session
+docker logs container_id | grep "FRONTEND-LOG" | jq 'select(.sessionId == "session-id")'
+
+# Count logs by level
+docker logs container_id | grep "FRONTEND-LOG" | jq -r '.level' | sort | uniq -c
+```
+
+For detailed logging documentation, see: `docs/LOGGING.md`
