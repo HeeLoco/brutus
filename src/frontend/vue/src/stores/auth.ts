@@ -52,9 +52,18 @@ export const useAuthStore = defineStore('auth', () => {
         const accounts = msalInstance.getAllAccounts()
         console.log('Found accounts:', accounts.length)
         if (accounts.length > 0) {
+          console.log('Setting account and acquiring token...')
           state.value.account = accounts[0]
           state.value.isAuthenticated = true
-          await acquireTokenSilent()
+          try {
+            const token = await acquireTokenSilent()
+            console.log('Token acquired successfully:', token ? 'Yes' : 'No')
+          } catch (tokenError) {
+            console.error('Token acquisition failed:', tokenError)
+            // Reset auth state if token acquisition fails
+            state.value.isAuthenticated = false
+            state.value.account = null
+          }
         }
       }
     } catch (error) {
@@ -67,20 +76,24 @@ export const useAuthStore = defineStore('auth', () => {
 
   const acquireTokenSilent = async (): Promise<string | null> => {
     try {
+      console.log('Attempting silent token acquisition...')
       if (!state.value.account) {
         throw new Error('No account found')
       }
 
+      console.log('Account found, requesting token for scopes:', tokenRequest.scopes)
       const response = await msalInstance.acquireTokenSilent({
         ...tokenRequest,
         account: state.value.account
       })
 
+      console.log('Silent token acquisition successful')
       state.value.accessToken = response.accessToken
       return response.accessToken
     } catch (error) {
       console.error('Silent token acquisition failed:', error)
       // If silent token acquisition fails, try interactive login
+      console.log('Falling back to interactive login...')
       await login()
       return null
     }

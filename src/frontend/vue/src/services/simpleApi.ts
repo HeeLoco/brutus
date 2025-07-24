@@ -1,3 +1,4 @@
+// Fixed JSON parsing for DELETE operations - v2
 export interface ResourceGroup {
   id?: string;
   name?: string;
@@ -84,7 +85,28 @@ export class SimpleApiService {
       throw new Error(`Azure API Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    return response.json();
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+    
+    // If there's no content or it's not JSON, return empty object
+    if (contentLength === '0' || !contentType?.includes('application/json')) {
+      return {};
+    }
+
+    // Try to parse JSON, but handle empty responses gracefully
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      console.log('API returned empty response - this is normal for DELETE operations');
+      return {};
+    }
+    
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('Failed to parse API response as JSON:', text);
+      return {};
+    }
   }
 
   // Backend API calls (with user token)
@@ -110,7 +132,28 @@ export class SimpleApiService {
       throw new Error(`Backend API Error: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    // Check if response has content before parsing JSON
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+    
+    // If there's no content or it's not JSON, return empty object
+    if (contentLength === '0' || !contentType?.includes('application/json')) {
+      return {};
+    }
+
+    // Try to parse JSON, but handle empty responses gracefully
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+      console.log('API returned empty response - this is normal for DELETE operations');
+      return {};
+    }
+    
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('Failed to parse API response as JSON:', text);
+      return {};
+    }
   }
 
   async getResourceGroups(): Promise<ResourceGroup[]> {

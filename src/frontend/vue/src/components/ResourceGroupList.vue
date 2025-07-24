@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { SimpleApiService, type ResourceGroup, type CreateResourceGroupRequest } from '../services/simpleApi'
 
@@ -169,13 +169,27 @@ const initializeApiService = async () => {
     throw new Error('No subscription ID available')
   }
   
+  // If we have an account but no token, wait a bit for token acquisition
+  if (authStore.state.account && !authStore.state.accessToken) {
+    console.log('Account exists but no token - will wait for token...')
+    return null // Return null to indicate we should wait
+  }
+  
   // Determine API mode based on authentication state and user choice
   let mode: 'demo' | 'backend' | 'azure' = 'demo'
   
+  console.log('Determining API mode...')
+  console.log('Access token exists:', !!authStore.state.accessToken)
+  console.log('Account username:', authStore.state.account?.username)
+  
   if (authStore.state.accessToken) {
     mode = 'azure'
+    console.log('Using Azure Direct mode')
   } else if (authStore.state.account?.username?.includes('backend')) {
     mode = 'backend'
+    console.log('Using Backend mode')
+  } else {
+    console.log('Using Demo mode (fallback)')
   }
   
   // Select backend URL based on the authenticated mode
@@ -202,7 +216,13 @@ const refreshResourceGroups = async () => {
   
   try {
     if (!apiService) {
-      await initializeApiService()
+      const result = await initializeApiService()
+      if (result === null) {
+        // Token not ready yet, wait for auth state change
+        console.log('Token not ready, waiting for authentication to complete...')
+        loading.value = false
+        return
+      }
     }
     
     if (!apiService) {
@@ -294,9 +314,17 @@ const closeCreateModal = () => {
   }
 }
 
+// Watch for authentication state changes and reinitialize when token becomes available
+watch(() => authStore.state.accessToken, async (newToken, oldToken) => {
+  if (newToken && !oldToken) {
+    console.log('Access token acquired, reinitializing API service...')
+    apiService = null // Reset the service
+    await refreshResourceGroups()
+  }
+})
+
 onMounted(async () => {
   try {
-    await initializeApiService()
     await refreshResourceGroups()
   } catch (err) {
     console.error('Failed to initialize:', err)
