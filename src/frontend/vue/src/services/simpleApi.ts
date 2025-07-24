@@ -1,4 +1,6 @@
 // Fixed JSON parsing for DELETE operations - v2
+import { logger } from './logger'
+
 export interface ResourceGroup {
   id?: string;
   name?: string;
@@ -97,14 +99,14 @@ export class SimpleApiService {
     // Try to parse JSON, but handle empty responses gracefully
     const text = await response.text();
     if (!text || text.trim() === '') {
-      console.log('API returned empty response - this is normal for DELETE operations');
+      logger.debug('Azure API returned empty response - this is normal for DELETE operations');
       return {};
     }
     
     try {
       return JSON.parse(text);
     } catch (error) {
-      console.error('Failed to parse API response as JSON:', text);
+      logger.warn('Failed to parse Azure API response as JSON', { responseText: text });
       return {};
     }
   }
@@ -144,14 +146,14 @@ export class SimpleApiService {
     // Try to parse JSON, but handle empty responses gracefully
     const text = await response.text();
     if (!text || text.trim() === '') {
-      console.log('API returned empty response - this is normal for DELETE operations');
+      logger.debug('Backend API returned empty response - this is normal for DELETE operations');
       return {};
     }
     
     try {
       return JSON.parse(text);
     } catch (error) {
-      console.error('Failed to parse API response as JSON:', text);
+      logger.warn('Failed to parse backend API response as JSON', { responseText: text });
       return {};
     }
   }
@@ -170,7 +172,7 @@ export class SimpleApiService {
         return response.value || [];
       }
     } catch (error) {
-      console.error('Failed to fetch resource groups:', error);
+      logger.logError(error, 'Failed to fetch resource groups', { mode: this.mode });
       throw error;
     }
   }
@@ -209,7 +211,7 @@ export class SimpleApiService {
         return response;
       }
     } catch (error) {
-      console.error('Failed to create resource group:', error);
+      logger.logError(error, 'Failed to create resource group', { mode: this.mode, name: data.name });
       throw error;
     }
   }
@@ -235,7 +237,7 @@ export class SimpleApiService {
         });
       }
     } catch (error) {
-      console.error('Failed to delete resource group:', error);
+      logger.logError(error, 'Failed to delete resource group', { mode: this.mode, name });
       throw error;
     }
   }
@@ -256,7 +258,7 @@ export class SimpleApiService {
         return response;
       }
     } catch (error) {
-      console.error('Failed to get resource group:', error);
+      logger.logError(error, 'Failed to get resource group', { mode: this.mode, name });
       throw error;
     }
   }

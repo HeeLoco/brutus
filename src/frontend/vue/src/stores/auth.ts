@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser'
 import { msalInstance, loginRequest, tokenRequest } from '../config/auth'
+import { logger } from '../services/logger'
 
 export interface AuthState {
   isAuthenticated: boolean
@@ -30,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Perform redirect login
       await msalInstance.loginRedirect(loginRequest)
     } catch (error) {
-      console.error('Login failed:', error)
+      logger.logError(error, 'Login failed')
       state.value.error = error instanceof Error ? error.message : 'Login failed'
       state.value.loading = false
     }
@@ -39,27 +40,27 @@ export const useAuthStore = defineStore('auth', () => {
   const handleRedirectResult = async () => {
     try {
       state.value.loading = true
-      console.log('Handling redirect result...')
+      logger.info('Handling redirect result...')
       const response = await msalInstance.handleRedirectPromise()
       
       if (response) {
         // Login was successful
-        console.log('Redirect response received:', response)
+        logger.info('Redirect response received', { accountId: response.account?.homeAccountId })
         setAuthenticatedState(response)
       } else {
         // Check if user is already logged in
-        console.log('No redirect response, checking for existing accounts...')
+        logger.info('No redirect response, checking for existing accounts...')
         const accounts = msalInstance.getAllAccounts()
-        console.log('Found accounts:', accounts.length)
+        logger.info('Found accounts', { count: accounts.length })
         if (accounts.length > 0) {
-          console.log('Setting account and acquiring token...')
+          logger.info('Setting account and acquiring token...', { username: accounts[0].username })
           state.value.account = accounts[0]
           state.value.isAuthenticated = true
           try {
             const token = await acquireTokenSilent()
-            console.log('Token acquired successfully:', token ? 'Yes' : 'No')
+            logger.info('Token acquired successfully', { hasToken: !!token })
           } catch (tokenError) {
-            console.error('Token acquisition failed:', tokenError)
+            logger.logError(tokenError, 'Token acquisition failed')
             // Reset auth state if token acquisition fails
             state.value.isAuthenticated = false
             state.value.account = null
@@ -67,7 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
       }
     } catch (error) {
-      console.error('Handle redirect failed:', error)
+      logger.logError(error, 'Handle redirect failed')
       state.value.error = error instanceof Error ? error.message : 'Authentication failed'
     } finally {
       state.value.loading = false
@@ -76,24 +77,24 @@ export const useAuthStore = defineStore('auth', () => {
 
   const acquireTokenSilent = async (): Promise<string | null> => {
     try {
-      console.log('Attempting silent token acquisition...')
+      logger.info('Attempting silent token acquisition...')
       if (!state.value.account) {
         throw new Error('No account found')
       }
 
-      console.log('Account found, requesting token for scopes:', tokenRequest.scopes)
+      logger.info('Account found, requesting token for scopes', { scopes: tokenRequest.scopes, username: state.value.account.username })
       const response = await msalInstance.acquireTokenSilent({
         ...tokenRequest,
         account: state.value.account
       })
 
-      console.log('Silent token acquisition successful')
+      logger.info('Silent token acquisition successful')
       state.value.accessToken = response.accessToken
       return response.accessToken
     } catch (error) {
-      console.error('Silent token acquisition failed:', error)
+      logger.logError(error, 'Silent token acquisition failed')
       // If silent token acquisition fails, try interactive login
-      console.log('Falling back to interactive login...')
+      logger.info('Falling back to interactive login...')
       await login()
       return null
     }
@@ -121,7 +122,7 @@ export const useAuthStore = defineStore('auth', () => {
         account: state.value.account
       })
     } catch (error) {
-      console.error('Logout failed:', error)
+      logger.logError(error, 'Logout failed')
       state.value.error = error instanceof Error ? error.message : 'Logout failed'
     } finally {
       state.value.loading = false
@@ -140,7 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
       await msalInstance.initialize()
       await handleRedirectResult()
     } catch (error) {
-      console.error('Failed to initialize auth:', error)
+      logger.logError(error, 'Failed to initialize auth')
       state.value.error = error instanceof Error ? error.message : 'Failed to initialize authentication'
       // Set loading to false so user can see error and retry
       state.value.loading = false

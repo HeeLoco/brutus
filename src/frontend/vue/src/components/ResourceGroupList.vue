@@ -148,6 +148,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { SimpleApiService, type ResourceGroup, type CreateResourceGroupRequest } from '../services/simpleApi'
+import { logger } from '../services/logger'
 
 const authStore = useAuthStore()
 
@@ -171,25 +172,26 @@ const initializeApiService = async () => {
   
   // If we have an account but no token, wait a bit for token acquisition
   if (authStore.state.account && !authStore.state.accessToken) {
-    console.log('Account exists but no token - will wait for token...')
+    logger.info('Account exists but no token - will wait for token...', { username: authStore.state.account.username })
     return null // Return null to indicate we should wait
   }
   
   // Determine API mode based on authentication state and user choice
   let mode: 'demo' | 'backend' | 'azure' = 'demo'
   
-  console.log('Determining API mode...')
-  console.log('Access token exists:', !!authStore.state.accessToken)
-  console.log('Account username:', authStore.state.account?.username)
+  logger.info('Determining API mode...', {
+    hasAccessToken: !!authStore.state.accessToken,
+    username: authStore.state.account?.username
+  })
   
   if (authStore.state.accessToken) {
     mode = 'azure'
-    console.log('Using Azure Direct mode')
+    logger.info('Using Azure Direct mode')
   } else if (authStore.state.account?.username?.includes('backend')) {
     mode = 'backend'
-    console.log('Using Backend mode')
+    logger.info('Using Backend mode')
   } else {
-    console.log('Using Demo mode (fallback)')
+    logger.info('Using Demo mode (fallback)')
   }
   
   // Select backend URL based on the authenticated mode
@@ -219,7 +221,7 @@ const refreshResourceGroups = async () => {
       const result = await initializeApiService()
       if (result === null) {
         // Token not ready yet, wait for auth state change
-        console.log('Token not ready, waiting for authentication to complete...')
+        logger.info('Token not ready, waiting for authentication to complete...')
         loading.value = false
         return
       }
@@ -230,8 +232,9 @@ const refreshResourceGroups = async () => {
     }
     
     resourceGroups.value = await apiService.getResourceGroups()
+    logger.info('Resource groups fetched successfully', { count: resourceGroups.value.length })
   } catch (err) {
-    console.error('Failed to fetch resource groups:', err)
+    logger.logError(err, 'Failed to fetch resource groups')
     error.value = err instanceof Error ? err.message : 'Unknown error occurred'
   } finally {
     loading.value = false
@@ -267,11 +270,12 @@ const createResourceGroup = async () => {
     }
 
     await apiService.createResourceGroup(request)
+    logger.info('Resource group created successfully', { name: request.name, location: request.location })
 
     closeCreateModal()
     await refreshResourceGroups()
   } catch (err) {
-    console.error('Failed to create resource group:', err)
+    logger.logError(err, 'Failed to create resource group', { requestName: request.name })
     error.value = err instanceof Error ? err.message : 'Failed to create resource group'
   } finally {
     creating.value = false
@@ -288,6 +292,10 @@ const deleteResourceGroup = async (name: string) => {
     return
   }
 
+  // Set loading state during deletion
+  loading.value = true
+  error.value = ''
+
   try {
     if (!apiService) {
       await initializeApiService()
@@ -298,10 +306,14 @@ const deleteResourceGroup = async (name: string) => {
     }
     
     await apiService.deleteResourceGroup(name)
+    logger.info('Resource group deleted successfully', { name })
+    
+    // Auto-refresh the resource groups list after successful deletion
     await refreshResourceGroups()
   } catch (err) {
-    console.error('Failed to delete resource group:', err)
+    logger.logError(err, 'Failed to delete resource group', { resourceGroupName: name })
     error.value = err instanceof Error ? err.message : 'Failed to delete resource group'
+    loading.value = false
   }
 }
 
@@ -317,7 +329,7 @@ const closeCreateModal = () => {
 // Watch for authentication state changes and reinitialize when token becomes available
 watch(() => authStore.state.accessToken, async (newToken, oldToken) => {
   if (newToken && !oldToken) {
-    console.log('Access token acquired, reinitializing API service...')
+    logger.info('Access token acquired, reinitializing API service...')
     apiService = null // Reset the service
     await refreshResourceGroups()
   }
@@ -325,9 +337,10 @@ watch(() => authStore.state.accessToken, async (newToken, oldToken) => {
 
 onMounted(async () => {
   try {
+    logger.info('Component mounted, initializing resource groups...')
     await refreshResourceGroups()
   } catch (err) {
-    console.error('Failed to initialize:', err)
+    logger.logError(err, 'Failed to initialize component')
     error.value = err instanceof Error ? err.message : 'Failed to initialize application'
   }
 })

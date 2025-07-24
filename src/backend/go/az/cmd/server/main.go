@@ -30,6 +30,7 @@ func main() {
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
 	tokenResourceHandler := handlers.NewTokenResourceHandler(tokenAzureService)
+	logHandler := handlers.NewLogHandler()
 
 	// Health check routes
 	router.GET("/health", healthHandler.Check)
@@ -44,6 +45,10 @@ func main() {
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
+		// Logging routes for frontend logs
+		v1.POST("/logs", logHandler.LogEntry)
+		v1.POST("/logs/batch", logHandler.LogBatch)
+
 		// Resource group routes (using user tokens)
 		rg := v1.Group("/resource-groups")
 		{
