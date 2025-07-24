@@ -16,11 +16,8 @@ func main() {
 	// Load configuration
 	cfg := configs.Load()
 
-	// Initialize Azure service
-	azureService, err := services.NewAzureService(cfg)
-	if err != nil {
-		log.Fatal("Failed to initialize Azure service:", err)
-	}
+	// Initialize token-based Azure service (uses user tokens instead of service credentials)
+	tokenAzureService := services.NewTokenBasedAzureService(cfg.SubscriptionID)
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -32,7 +29,7 @@ func main() {
 
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
-	resourceHandler := handlers.NewResourceHandler(azureService)
+	tokenResourceHandler := handlers.NewTokenResourceHandler(tokenAzureService)
 
 	// Health check routes
 	router.GET("/health", healthHandler.Check)
@@ -47,14 +44,14 @@ func main() {
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
-		// Resource group routes
+		// Resource group routes (using user tokens)
 		rg := v1.Group("/resource-groups")
 		{
-			rg.GET("", resourceHandler.ListResourceGroups)
-			rg.POST("", resourceHandler.CreateResourceGroup)
-			rg.GET("/:name", resourceHandler.GetResourceGroup)
-			rg.PUT("/:name", resourceHandler.UpdateResourceGroup)
-			rg.DELETE("/:name", resourceHandler.DeleteResourceGroup)
+			rg.GET("", tokenResourceHandler.ListResourceGroups)
+			rg.POST("", tokenResourceHandler.CreateResourceGroup)
+			rg.GET("/:name", tokenResourceHandler.GetResourceGroup)
+			rg.PUT("/:name", tokenResourceHandler.UpdateResourceGroup)
+			rg.DELETE("/:name", tokenResourceHandler.DeleteResourceGroup)
 		}
 	}
 

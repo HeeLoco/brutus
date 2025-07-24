@@ -33,3 +33,12 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 	Code    int    `json:"code"`
 }
+
+// AuthError represents an authentication error
+type AuthError struct {
+	Message string
+}
+
+func (e *AuthError) Error() string {
+	return e.Message
+}
