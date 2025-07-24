@@ -7,7 +7,7 @@ azure-identity==1.15.0
 azure-mgmt-resource==23.1.0b2
 
 # Configuration and validation
-pydantic==2.5.1
+pydantic==2.11.7
 pydantic-settings==2.1.0
 
 # Additional dependencies
