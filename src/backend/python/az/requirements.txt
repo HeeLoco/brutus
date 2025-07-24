@@ -11,4 +11,4 @@ pydantic==2.5.1
 pydantic-settings==2.1.0
 
 # Additional dependencies
-python-multipart==0.0.6  # For form data handling if needed
+python-multipart==0.0.20  # For form data handling if needed
