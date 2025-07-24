@@ -3,4 +3,11 @@
   "extends": [
     "config:recommended"
   ]
+    "packageRules": [
+    {
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "groupName": "Docker dependencies",
+      "labels": ["docker", "renovate"]
+    }
+  ]
 }
