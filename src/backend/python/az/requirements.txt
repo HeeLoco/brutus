@@ -1,6 +1,6 @@
 # Web framework
 fastapi==0.116.1
-uvicorn[standard]==0.24.0
+uvicorn[standard]==0.35.0
 
 # Azure SDK
 azure-identity==1.23.1
