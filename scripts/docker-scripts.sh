@@ -66,13 +66,70 @@ prod() {
 
 # Build only (no start)
 build() {
-    print_header "Building All Images"
-    check_docker
+    local service="$1"
+    local force_rebuild="$2"
     
-    print_warning "Building all Docker images..."
-    docker-compose -f docker-compose.yml build
+    if [ -n "$service" ]; then
+        print_header "Building $service"
+        check_docker
+        
+        case "$service" in
+            backend|backend-go)
+                print_warning "Building Go backend service..."
+                docker-compose -f docker-compose.yml build ${force_rebuild:+--no-cache} backend-go
+                ;;
+            frontend-dev|dev)
+                print_warning "Building development frontend..."
+                docker-compose -f docker-compose.yml --profile dev build ${force_rebuild:+--no-cache} frontend-dev
+                ;;
+            frontend-prod|prod)
+                print_warning "Building production frontend..."
+                docker-compose -f docker-compose.yml --profile prod build ${force_rebuild:+--no-cache} frontend-prod
+                ;;
+            *)
+                print_error "Unknown service: $service"
+                echo "Available services: backend, frontend-dev, frontend-prod"
+                exit 1
+                ;;
+        esac
+        print_success "$service built successfully!"
+    else
+        print_header "Building All Images"
+        check_docker
+        
+        print_warning "Building all Docker images..."
+        
+        # Build backend service (used in both dev and prod)
+        print_warning "Building backend service..."
+        if ! docker-compose -f docker-compose.yml build ${force_rebuild:+--no-cache} backend-go; then
+            print_error "Failed to build backend service"
+            exit 1
+        fi
+        
+        # Build development frontend
+        print_warning "Building development frontend..."
+        if ! docker-compose -f docker-compose.yml --profile dev build ${force_rebuild:+--no-cache} frontend-dev; then
+            print_error "Failed to build development frontend"
+            exit 1
+        fi
+        
+        # Build production frontend
+        print_warning "Building production frontend..."
+        if ! docker-compose -f docker-compose.yml --profile prod build ${force_rebuild:+--no-cache} frontend-prod; then
+            print_error "Failed to build production frontend"
+            exit 1
+        fi
+        
+        print_success "All images built successfully!"
+    fi
     
-    print_success "All images built successfully!"
+    echo
+    print_warning "Built images:"
+    if docker images | grep -q brutus; then
+        docker images | grep brutus | awk '{print "  " $1 ":" $2 " - " $6 " (" $7 " " $8 " ago)"}'
+    else
+        echo "  No brutus images found"
+    fi
 }
 
 # Stop all services
@@ -186,7 +243,7 @@ help() {
     echo "Commands:"
     echo "  dev          - Start development environment (Vue frontend + Go backend)"
     echo "  prod         - Start production environment"
-    echo "  build        - Build all Docker images"
+    echo "  build [service] [--force] - Build Docker images (all or specific service)"
     echo "  stop         - Stop all services (handles both compose files)"
     echo "  force-stop   - Force stop ALL containers (nuclear option)"
     echo "  clean        - Remove all containers, images, and volumes"
@@ -196,8 +253,16 @@ help() {
     echo "  check-env    - Check environment configuration and variables"
     echo "  help         - Show this help message"
     echo
+    echo "Build Options:"
+    echo "  $0 build               # Build all images"
+    echo "  $0 build backend       # Build only backend"
+    echo "  $0 build frontend-dev  # Build only development frontend"
+    echo "  $0 build frontend-prod # Build only production frontend"
+    echo "  $0 build all --force   # Rebuild all images from scratch"
+    echo
     echo "Examples:"
     echo "  $0 dev                 # Start development"
+    echo "  $0 build backend       # Build only Go backend"
     echo "  $0 logs frontend-dev   # Show frontend logs"
     echo "  $0 check-env           # Check environment configuration"
     echo "  $0 stop               # Stop all services"
@@ -309,7 +374,16 @@ case "${1:-help}" in
         prod
         ;;
     build)
-        build
+        # Handle build with optional service parameter and force flag
+        service="$2"
+        force=""
+        if [ "$3" = "--force" ] || [ "$2" = "--force" ]; then
+            force="--no-cache"
+            if [ "$2" = "--force" ]; then
+                service=""
+            fi
+        fi
+        build "$service" "$force"
         ;;
     stop)
         stop

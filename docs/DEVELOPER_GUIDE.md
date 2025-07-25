@@ -110,6 +110,15 @@ The project includes a comprehensive Docker management script at `./scripts/dock
 # Build all images
 ./scripts/docker-scripts.sh build
 
+# Build specific services
+./scripts/docker-scripts.sh build backend          # Go backend only
+./scripts/docker-scripts.sh build frontend-dev    # Development frontend only  
+./scripts/docker-scripts.sh build frontend-prod   # Production frontend only
+
+# Force rebuild (no cache)
+./scripts/docker-scripts.sh build --force         # Rebuild all from scratch
+./scripts/docker-scripts.sh build backend --force # Force rebuild backend only
+
 # Stop all services
 ./scripts/docker-scripts.sh stop
 
@@ -144,6 +153,49 @@ The project includes a comprehensive Docker management script at `./scripts/dock
 - **`Dockerfile.dev`**: Single-stage development container with hot reload
 - **`Dockerfile`**: Multi-stage production build with Nginx
 - **`docker-compose.yml`**: Service definitions with profiles (dev/prod)
+
+### Build Management
+
+The enhanced build system supports granular control over which services to build:
+
+#### Build All Services
+```bash
+./scripts/docker-scripts.sh build
+```
+Builds all three services: backend, frontend-dev, and frontend-prod with their respective profiles.
+
+#### Build Individual Services
+```bash
+# Backend service (Go API)
+./scripts/docker-scripts.sh build backend
+
+# Development frontend (Vite dev server)
+./scripts/docker-scripts.sh build frontend-dev
+
+# Production frontend (Nginx static files)  
+./scripts/docker-scripts.sh build frontend-prod
+
+# Alternative service names
+./scripts/docker-scripts.sh build dev    # Same as frontend-dev
+./scripts/docker-scripts.sh build prod   # Same as frontend-prod
+```
+
+#### Force Rebuild (No Cache)
+```bash
+# Force rebuild all services
+./scripts/docker-scripts.sh build --force
+
+# Force rebuild specific service
+./scripts/docker-scripts.sh build backend --force
+./scripts/docker-scripts.sh build frontend-dev --force
+```
+
+#### Build Output
+The build command shows:
+- Build progress for each service
+- Success/failure status with error handling
+- List of built images with sizes and timestamps
+- Clear indication of which services were built
 
 ## Azure AD Configuration
 
@@ -295,6 +347,10 @@ BrowserAuthError: interaction_in_progress: Interaction is currently in progress
 ```bash
 ./scripts/docker-scripts.sh clean
 ./scripts/docker-scripts.sh build
+
+# Or force rebuild specific service
+./scripts/docker-scripts.sh build backend --force
+./scripts/docker-scripts.sh build frontend-dev --force
 ```
 
 #### 4. Port Conflicts

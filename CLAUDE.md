@@ -132,8 +132,14 @@ The project includes comprehensive Docker management scripts for easy developmen
 # → Frontend: http://localhost (Nginx static files)
 # → Backend: http://localhost:8080 (Go API)
 
+# Build commands (supports individual services and force rebuild)
+./scripts/docker-scripts.sh build                    # Build all images
+./scripts/docker-scripts.sh build backend           # Build Go backend only
+./scripts/docker-scripts.sh build frontend-dev      # Build dev frontend only
+./scripts/docker-scripts.sh build frontend-prod     # Build prod frontend only
+./scripts/docker-scripts.sh build --force           # Force rebuild all (no cache)
+
 # Other useful commands
-./scripts/docker-scripts.sh build        # Build all images
 ./scripts/docker-scripts.sh stop         # Stop all services
 ./scripts/docker-scripts.sh status       # Show container status
 ./scripts/docker-scripts.sh logs         # View logs
