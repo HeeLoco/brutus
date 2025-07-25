@@ -13,5 +13,5 @@ COPY . .
 # Expose development port
 EXPOSE 5173
 
-# Start development server with hot reload
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Start development server with hot reload and explicit mode
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--mode", "development"]

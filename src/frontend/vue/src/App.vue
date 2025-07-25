@@ -1,25 +1,10 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useAuthStore } from './stores/auth'
-import DemoLoginForm from './components/DemoLoginForm.vue'
-import ResourceGroupList from './components/ResourceGroupList.vue'
-
-const authStore = useAuthStore()
-
-onMounted(async () => {
-  try {
-    await authStore.initializeAuth()
-  } catch (error) {
-    console.error('Failed to initialize auth:', error)
-    // Continue without auth for demo mode
-  }
-})
+// Main app router view
 </script>
 
 <template>
   <div id="app">
-    <DemoLoginForm v-if="!authStore.state.isAuthenticated" />
-    <ResourceGroupList v-else />
+    <router-view />
   </div>
 </template>
 

@@ -10,11 +10,6 @@ services:
     volumes:
       - ./src/frontend/vue:/app
       - /app/node_modules
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8080/api/v1
-      - VITE_AZURE_CLIENT_ID=${VITE_AZURE_CLIENT_ID:-demo-client-id}
-      - VITE_AZURE_TENANT_ID=${VITE_AZURE_TENANT_ID:-common}
-      - VITE_AZURE_SUBSCRIPTION_ID=${VITE_AZURE_SUBSCRIPTION_ID:-demo-subscription}
     profiles:
       - dev
     networks:

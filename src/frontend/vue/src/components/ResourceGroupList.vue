@@ -17,6 +17,9 @@
         <button @click="showCreateModal = true" class="create-button">
           + Create Resource Group
         </button>
+        <router-link to="/debug" class="debug-link">
+          🔧 Debug
+        </router-link>
         <button @click="authStore.logout()" class="logout-button">
           Logout
         </button>
@@ -435,6 +438,19 @@ onMounted(async () => {
 
 .logout-button:hover {
   background: #dc2626;
+}
+.debug-link {
+  padding: 0.5rem 1rem;
+  background: #8b5cf6;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+.debug-link:hover {
+  background: #7c3aed;
 }
 
 .loading-state, .error-state, .empty-state {

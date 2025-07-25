@@ -193,16 +193,111 @@ help() {
     echo "  logs [service] - Show logs (all services or specific service)"
     echo "  status       - Show services and images status"
     echo "  test         - Test all endpoints"
+    echo "  check-env    - Check environment configuration and variables"
     echo "  help         - Show this help message"
     echo
     echo "Examples:"
     echo "  $0 dev                 # Start development"
     echo "  $0 logs frontend-dev   # Show frontend logs"
+    echo "  $0 check-env           # Check environment configuration"
     echo "  $0 stop               # Stop all services"
     echo "  $0 force-stop         # Force stop everything"
     echo "  $0 clean              # Clean everything"
     echo
     echo "Note: This script handles both docker-compose.yml and compose.yml files"
+}
+
+# Check environment configuration
+check_env() {
+    print_header "Environment Configuration Check"
+    
+    # Check if frontend directory exists
+    if [ ! -d "src/frontend/vue" ]; then
+        print_error "Frontend directory not found: src/frontend/vue"
+        return 1
+    fi
+    
+    cd src/frontend/vue
+    
+    # Check environment files
+    print_warning "Checking environment files..."
+    echo
+    
+    ENV_FILES=(".env" ".env.development" ".env.production" ".env.example")
+    
+    for env_file in "${ENV_FILES[@]}"; do
+        if [ -f "$env_file" ]; then
+            print_success "Found: $env_file"
+            
+            # Show key environment variables
+            if [ "$env_file" != ".env.example" ]; then
+                echo "  Key variables:"
+                if grep -q "VITE_REDIRECT_URI" "$env_file"; then
+                    redirect_uri=$(grep "VITE_REDIRECT_URI" "$env_file" | cut -d'=' -f2)
+                    echo "    VITE_REDIRECT_URI=$redirect_uri"
+                fi
+                if grep -q "VITE_AZURE_CLIENT_ID" "$env_file"; then
+                    client_id=$(grep "VITE_AZURE_CLIENT_ID" "$env_file" | cut -d'=' -f2)
+                    echo "    VITE_AZURE_CLIENT_ID=${client_id:0:8}..." # Show only first 8 chars
+                fi
+                if grep -q "VITE_API_BASE_URL" "$env_file"; then
+                    api_url=$(grep "VITE_API_BASE_URL" "$env_file" | cut -d'=' -f2)
+                    echo "    VITE_API_BASE_URL=$api_url"
+                fi
+                echo
+            fi
+        else
+            print_warning "Missing: $env_file"
+        fi
+    done
+    
+    # Check if containers are running
+    cd - > /dev/null
+    print_warning "Checking running containers..."
+    echo
+    
+    if docker ps | grep -q "brutus-frontend-dev"; then
+        print_success "Frontend container is running"
+        
+        # Check environment variables inside container
+        print_warning "Environment variables inside frontend container:"
+        docker exec brutus-frontend-dev-1 sh -c 'env | grep VITE_ | sort' 2>/dev/null || echo "  No VITE_ variables found"
+        echo
+        
+        # Check what .env files are in container
+        print_warning "Environment files in container:"
+        if docker exec brutus-frontend-dev-1 ls -la /app/.env* 2>/dev/null; then
+            echo
+        else
+            echo "  Environment files are mounted via Docker volume"
+            docker exec brutus-frontend-dev-1 ls -la /app/ | grep "\.env" 2>/dev/null || echo "  No .env files visible"
+            echo
+        fi
+        
+    else
+        print_warning "Frontend container is not running"
+        echo "  Use './scripts/docker-scripts.sh dev' to start development environment"
+        echo
+    fi
+    
+    if docker ps | grep -q "brutus-backend-go"; then
+        print_success "Backend container is running"
+        echo "  Backend URL: http://localhost:8080"
+        echo "  Health check: http://localhost:8080/health"
+        echo
+    else
+        print_warning "Backend container is not running"
+        echo
+    fi
+    
+    # Check Azure AD redirect URIs
+    print_warning "Azure AD Configuration Reminder:"
+    echo "  Make sure these redirect URIs are registered in your Azure AD App:"
+    echo "  • http://localhost:5173 (for development)"
+    echo "  • http://localhost (for production)"
+    echo
+    
+    print_success "Environment check complete!"
 }
 
 # Main script logic
@@ -233,6 +328,9 @@ case "${1:-help}" in
         ;;
     test)
         test
+        ;;
+    check-env)
+        check_env
         ;;
     help|--help|-h)
         help

@@ -28,11 +28,27 @@ export const useAuthStore = defineStore('auth', () => {
       state.value.loading = true
       state.value.error = null
 
+      // Check if there's already an active account (simple check)
+      const activeAccount = msalInstance.getActiveAccount()
+      if (activeAccount) {
+        logger.warn('User already has an active account, skipping new login attempt')
+        state.value.loading = false
+        return
+      }
+
       // Perform redirect login
       await msalInstance.loginRedirect(loginRequest)
     } catch (error) {
       logger.logError(error, 'Login failed')
-      state.value.error = error instanceof Error ? error.message : 'Login failed'
+      
+      // Handle specific interaction_in_progress error
+      if (error instanceof Error && error.message.includes('interaction_in_progress')) {
+        state.value.error = 'Login is already in progress. Please wait or refresh the page to try again.'
+        logger.warn('Interaction in progress detected, suggesting page refresh')
+      } else {
+        state.value.error = error instanceof Error ? error.message : 'Login failed'
+      }
+      
       state.value.loading = false
     }
   }
@@ -136,6 +152,38 @@ export const useAuthStore = defineStore('auth', () => {
     state.value.error = null
   }
 
+  const clearInteractionState = async () => {
+    try {
+      // Clear any cached interaction state
+      logger.info('Clearing interaction state...')
+      
+      // Clear ALL MSAL related localStorage entries
+      const msalKeys = Object.keys(localStorage).filter(key => key.includes('msal'))
+      msalKeys.forEach(key => {
+        localStorage.removeItem(key)
+        logger.info(`Removed localStorage key: ${key}`)
+      })
+      
+      // Also clear sessionStorage
+      const msalSessionKeys = Object.keys(sessionStorage).filter(key => key.includes('msal'))
+      msalSessionKeys.forEach(key => {
+        sessionStorage.removeItem(key)
+        logger.info(`Removed sessionStorage key: ${key}`)
+      })
+      
+      // Reset auth state
+      state.value.isAuthenticated = false
+      state.value.account = null
+      state.value.accessToken = null
+      state.value.loading = false
+      state.value.error = null
+      
+      logger.info('Interaction state cleared successfully')
+    } catch (error) {
+      logger.logError(error, 'Failed to clear interaction state')
+    }
+  }
+
   const initializeAuth = async () => {
     try {
       await msalInstance.initialize()
@@ -154,6 +202,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     getAccessToken,
     initializeAuth,
-    handleRedirectResult
+    handleRedirectResult,
+    clearInteractionState
   }
 })

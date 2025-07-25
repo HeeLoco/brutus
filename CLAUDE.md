@@ -115,6 +115,115 @@ docker-compose up --build backend-az
 
 The server will be available on port 8000.
 
+## Development Environment Management
+
+### Docker Scripts
+
+The project includes comprehensive Docker management scripts for easy development:
+
+```bash
+# Quick Start - Development Environment
+./scripts/docker-scripts.sh dev
+# → Frontend: http://localhost:5173 (Vue + Vite dev server)
+# → Backend: http://localhost:8080 (Go API)
+
+# Production Environment
+./scripts/docker-scripts.sh prod  
+# → Frontend: http://localhost (Nginx static files)
+# → Backend: http://localhost:8080 (Go API)
+
+# Other useful commands
+./scripts/docker-scripts.sh build        # Build all images
+./scripts/docker-scripts.sh stop         # Stop all services
+./scripts/docker-scripts.sh status       # Show container status
+./scripts/docker-scripts.sh logs         # View logs
+./scripts/docker-scripts.sh check-env    # Validate environment
+./scripts/docker-scripts.sh test         # Test all endpoints
+./scripts/docker-scripts.sh clean        # Remove everything
+```
+
+### Development vs Production Environments
+
+The project supports two distinct environments with **identical source code** but different builds:
+
+| Environment | URL | Server | Build Type | Use Case |
+|-------------|-----|--------|------------|----------|
+| **Development** | `http://localhost:5173` | Vite dev server | Unminified, hot reload | Development, debugging |
+| **Production** | `http://localhost` | Nginx static files | Minified, optimized | Production testing |
+
+**Key Differences:**
+- **Development**: Hot module replacement, Vue DevTools, source maps, error overlay
+- **Production**: Minified bundle, static file serving, performance optimized
+
+**Environment Files:**
+- `.env.development` → Used in development mode
+- `.env.production` → Used in production mode
+- Both require identical Azure credentials but different redirect URIs
+
+### Frontend Environment Setup
+
+1. **Copy environment templates:**
+   ```bash
+   cd src/frontend/vue
+   cp .env.example .env.development
+   cp .env.example .env.production
+   ```
+
+2. **Configure Azure AD credentials in both files:**
+   ```bash
+   # Required in both .env.development and .env.production
+   VITE_AZURE_CLIENT_ID=your-client-id
+   VITE_AZURE_TENANT_ID=your-tenant-id
+   VITE_AZURE_SUBSCRIPTION_ID=your-subscription-id
+   ```
+
+3. **Different redirect URIs per environment:**
+   ```bash
+   # .env.development
+   VITE_REDIRECT_URI=http://localhost:5173
+   
+   # .env.production  
+   VITE_REDIRECT_URI=http://localhost
+   ```
+
+4. **Register BOTH redirect URIs in Azure AD App Registration:**
+   - `http://localhost:5173` (development)
+   - `http://localhost` (production)
+
+### Debugging and Troubleshooting
+
+**Environment Debug Page:**
+- Access `http://localhost:5173/debug` to view configuration details
+- Shows environment variables (with sensitive values masked)
+- Tests backend connectivity
+- Displays authentication status
+
+**Login Issues:**
+If authentication fails with "interaction_in_progress" error:
+1. Click "Clear Login State" button in login form
+2. Try "Refresh Page" button for complete reset  
+3. Use browser incognito mode as fallback
+
+**Log Analysis:**
+```bash
+# View frontend logs (appear in backend container)
+docker logs brutus-backend-go-1 | grep "FRONTEND-LOG"
+
+# Parse frontend logs as JSON
+docker logs brutus-backend-go-1 | grep "FRONTEND-LOG" | jq '.'
+
+# Environment validation
+./scripts/docker-scripts.sh check-env
+```
+
+**Common Port Usage:**
+- Development frontend: 5173
+- Production frontend: 80
+- Go backend: 8080
+- Health checks: Available at `/health` endpoint
+
+For comprehensive development guidance, see [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md).
+
 ## Architecture
 
 ### Python Azure Server (`src/backend/python/az/`)

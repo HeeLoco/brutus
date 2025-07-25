@@ -40,8 +40,29 @@
           {{ loading ? 'Connecting...' : 'Connect' }}
         </button>
 
+        <button 
+          @click="clearLoginState"
+          :disabled="loading"
+          class="clear-button"
+          title="Clear cached login state if authentication is stuck"
+        >
+          Clear Login State
+        </button>
+
+        <button 
+          @click="refreshPage"
+          :disabled="loading"
+          class="refresh-button"
+          title="Refresh the page for a complete reset"
+        >
+          Refresh Page
+        </button>
+
         <div v-if="error" class="error-message">
           {{ error }}
+          <div v-if="error.includes('interaction_in_progress') || error.includes('already in progress')" class="error-suggestion">
+            💡 Try clicking "Clear Login State" button above and then try logging in again.
+          </div>
         </div>
 
         <div class="info-box">
@@ -119,6 +140,31 @@ const handleLogin = async () => {
       loading.value = false
     }
   }
+}
+
+const clearLoginState = async () => {
+  try {
+    loading.value = true
+    error.value = ''
+    
+    console.log('Clearing login state...')
+    await authStore.clearInteractionState()
+    
+    // Small delay to let MSAL reset
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    console.log('Login state cleared successfully')
+    error.value = '✅ Login state cleared. You can now try logging in again, or refresh the page for a complete reset.'
+  } catch (err) {
+    console.error('Failed to clear login state:', err)
+    error.value = 'Failed to clear login state'
+  } finally {
+    loading.value = false
+  }
+}
+
+const refreshPage = () => {
+  window.location.reload()
 }
 </script>
 
@@ -217,6 +263,52 @@ label {
   cursor: not-allowed;
 }
 
+.clear-button {
+  width: 100%;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  padding: 0.875rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 0.5rem;
+}
+
+.clear-button:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.clear-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.refresh-button {
+  width: 100%;
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.875rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 0.5rem;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.refresh-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
 .error-message {
   color: #dc2626;
   background: #fef2f2;
@@ -225,6 +317,16 @@ label {
   border: 1px solid #fecaca;
   margin-top: 1rem;
   font-size: 0.875rem;
+}
+
+.error-suggestion {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  border-left: 3px solid #f59e0b;
 }
 
 .info-box {
