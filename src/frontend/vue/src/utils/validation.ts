@@ -121,12 +121,17 @@ export function useFormValidation() {
     errors.value = {}
   }
 
+  const clearFieldError = (field: string) => {
+    delete errors.value[field]
+  }
+
   const hasErrors = computed(() => Object.keys(errors.value).length > 0)
 
   return {
     errors: readonly(errors),
     validateField,
     clearErrors,
+    clearFieldError,
     hasErrors
   }
 }

@@ -17,20 +17,23 @@
 
       <div v-else class="login-form">
         <div class="form-group">
-          <label for="subscriptionId">Azure Subscription ID:</label>
+          <label for="subscriptionId">
+            Azure Subscription ID 
+            <span class="optional-indicator">(Optional)</span>
+          </label>
           <input
             id="subscriptionId"
             v-model="subscriptionId"
             @blur="validateSubscriptionId"
             type="text"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            placeholder="Leave empty to use environment variable"
             class="form-input"
             :class="{ 'error': errors.subscriptionId }"
           />
           <div v-if="errors.subscriptionId" class="error-text">
             {{ errors.subscriptionId }}
           </div>
-          <small>Optional: Leave empty to use environment variable</small>
+          <small>Uses VITE_AZURE_SUBSCRIPTION_ID environment variable when empty</small>
         </div>
 
         <button 
@@ -76,12 +79,13 @@ import { InputValidator, ValidationMessages, useFormValidation } from '../utils/
 const authStore = useAuthStore()
 const subscriptionId = ref(import.meta.env.VITE_AZURE_SUBSCRIPTION_ID || '')
 
-const { errors, validateField, clearErrors, hasErrors } = useFormValidation()
+const { errors, validateField, clearErrors, clearFieldError, hasErrors } = useFormValidation()
 
 const validateSubscriptionId = () => {
   if (subscriptionId.value.trim() === '') {
     // Empty is allowed - will use environment variable
-    delete errors.value.subscriptionId
+    // Clear only the subscription ID error, preserving other potential errors
+    clearFieldError('subscriptionId')
     return true
   }
   
@@ -166,6 +170,12 @@ label {
   color: #374151;
   font-weight: 500;
   margin-bottom: 0.5rem;
+}
+
+.optional-indicator {
+  color: #6b7280;
+  font-weight: 400;
+  font-size: 0.875rem;
 }
 
 .form-input,
