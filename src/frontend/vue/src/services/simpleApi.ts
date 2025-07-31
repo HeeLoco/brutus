@@ -1,5 +1,6 @@
 // Fixed JSON parsing for DELETE operations - v2
 import { logger } from './logger'
+import { CSRFService } from './csrf'
 
 export interface ResourceGroup {
   id?: string;
@@ -73,10 +74,14 @@ export class SimpleApiService {
 
     const url = `https://management.azure.com/subscriptions/${this.subscriptionId}${endpoint}?api-version=2021-04-01`;
     
+    // Get CSRF headers for state-changing operations
+    const csrfHeaders = options.method && options.method !== 'GET' ? await CSRFService.getHeaders() : {};
+    
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
+        ...csrfHeaders,
         ...options.headers,
       },
       ...options,
@@ -127,6 +132,12 @@ export class SimpleApiService {
 
     // Add subscription ID header for backend to know which subscription to use
     headers['X-Azure-Subscription-ID'] = this.subscriptionId;
+    
+    // Add CSRF protection for state-changing operations
+    if (options.method && options.method !== 'GET') {
+      const csrfHeaders = await CSRFService.getHeaders();
+      Object.assign(headers, csrfHeaders);
+    }
     
     const response = await fetch(url, {
       headers,

@@ -313,8 +313,10 @@ BrowserAuthError: interaction_in_progress: Interaction is currently in progress
 
 3. **Clear browser storage manually:**
    ```javascript
-   // In browser console
-   localStorage.clear()
+   // In browser console - Clear cookies and session storage
+   document.cookie.split(";").forEach(c => {
+     document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+   });
    sessionStorage.clear()
    location.reload()
    ```

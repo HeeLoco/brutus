@@ -10,8 +10,8 @@ export const msalConfig: Configuration = {
     postLogoutRedirectUri: import.meta.env.VITE_POST_LOGOUT_REDIRECT_URI || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'),
   },
   cache: {
-    cacheLocation: 'localStorage',
-    storeAuthStateInCookie: false,
+    cacheLocation: 'sessionStorage', // Use sessionStorage as fallback for MSAL's internal cache
+    storeAuthStateInCookie: true, // Enable cookie storage for auth state
   },
 };
 

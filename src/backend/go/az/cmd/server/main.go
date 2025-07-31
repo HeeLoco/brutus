@@ -23,7 +23,9 @@ func main() {
 	router := gin.Default()
 
 	// Add middleware
-	router.Use(middleware.CORS())
+	router.Use(middleware.SecurityHeaders())   // Comprehensive security headers
+	router.Use(middleware.CORS())              // Secure CORS configuration
+	router.Use(middleware.SetCSRFToken())      // Generate CSRF tokens
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 
@@ -45,18 +47,19 @@ func main() {
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
-		// Logging routes for frontend logs
+		// Logging routes for frontend logs (no CSRF for logging)
 		v1.POST("/logs", logHandler.LogEntry)
 		v1.POST("/logs/batch", logHandler.LogBatch)
 
-		// Resource group routes (using user tokens)
+		// Resource group routes (using user tokens) with CSRF protection
 		rg := v1.Group("/resource-groups")
+		rg.Use(middleware.CSRFProtection()) // Protect state-changing operations
 		{
-			rg.GET("", tokenResourceHandler.ListResourceGroups)
-			rg.POST("", tokenResourceHandler.CreateResourceGroup)
-			rg.GET("/:name", tokenResourceHandler.GetResourceGroup)
-			rg.PUT("/:name", tokenResourceHandler.UpdateResourceGroup)
-			rg.DELETE("/:name", tokenResourceHandler.DeleteResourceGroup)
+			rg.GET("", tokenResourceHandler.ListResourceGroups)     // No CSRF for GET
+			rg.POST("", tokenResourceHandler.CreateResourceGroup)   // CSRF protected
+			rg.GET("/:name", tokenResourceHandler.GetResourceGroup) // No CSRF for GET
+			rg.PUT("/:name", tokenResourceHandler.UpdateResourceGroup) // CSRF protected
+			rg.DELETE("/:name", tokenResourceHandler.DeleteResourceGroup) // CSRF protected
 		}
 	}
 

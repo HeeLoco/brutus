@@ -294,15 +294,32 @@ For comprehensive development guidance, see [`docs/DEVELOPER_GUIDE.md`](docs/DEV
 
 ### Vue.js Application (`src/frontend/vue/`)
 - **Framework**: Vue 3 with Composition API and TypeScript
-- **Authentication**: MSAL (Microsoft Authentication Library) for Azure AD integration
+- **Authentication**: MSAL (Microsoft Authentication Library) for Azure AD integration with secure cookie storage
 - **State Management**: Pinia for centralized state management
 - **API Integration**: Multi-mode API service (Demo, Backend, Azure Direct)
 - **Logging**: Centralized logging service that sends logs to backend containers
 - **Components**: Reactive components with auto-refresh capabilities
+- **Cookie-Based Auth**: Secure authentication using HTTP cookies with proper security flags
 - **Authentication Modes**:
   - **Demo Mode**: Uses mock data for testing
   - **Backend Mode**: Communicates through backend APIs
   - **Azure Direct Mode**: Direct calls to Azure Management APIs using user tokens
+
+### Authentication Storage Architecture
+
+The application uses **secure HTTP cookies** for authentication persistence instead of localStorage:
+
+- **Primary Storage**: HTTP cookies with `Secure`, `SameSite=Strict` flags
+- **Cookie Types**:
+  - `auth_token` - Azure access token with automatic expiration
+  - `account_info` - User account information (JSON)
+  - `refresh_token` - Long-term refresh token (30-day expiry)
+- **MSAL Cache**: Uses sessionStorage as fallback for MSAL's internal cache
+- **Security Benefits**: 
+  - CSRF protection via SameSite
+  - Automatic expiration handling
+  - SSR compatibility
+  - Secure transport over HTTPS
 
 ### Frontend Logging System
 

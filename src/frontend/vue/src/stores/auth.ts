@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { AccountInfo, AuthenticationResult } from '@azure/msal-browser'
 import { msalInstance, loginRequest, tokenRequest } from '../config/auth'
 import { logger } from '../services/logger'
+import { CookieService } from '../services/cookies'
 
 export interface AuthState {
   isAuthenticated: boolean
@@ -127,6 +128,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       state.value.loading = true
       
+      // Clear cookies first
+      CookieService.clearAllAuthCookies()
+      logger.info('Auth cookies cleared')
+      
       // Clear state
       state.value.isAuthenticated = false
       state.value.account = null
@@ -150,6 +155,18 @@ export const useAuthStore = defineStore('auth', () => {
     state.value.account = response.account
     state.value.accessToken = response.accessToken
     state.value.error = null
+
+    // Store auth data in cookies
+    if (response.accessToken) {
+      CookieService.setAuthToken(response.accessToken, response.expiresOn ? 
+        Math.floor((response.expiresOn.getTime() - Date.now()) / 1000) : 3600)
+    }
+    
+    if (response.account) {
+      CookieService.setAccountInfo(response.account)
+    }
+
+    logger.info('Auth state saved to cookies')
   }
 
   const clearInteractionState = async () => {
@@ -157,14 +174,10 @@ export const useAuthStore = defineStore('auth', () => {
       // Clear any cached interaction state
       logger.info('Clearing interaction state...')
       
-      // Clear ALL MSAL related localStorage entries
-      const msalKeys = Object.keys(localStorage).filter(key => key.includes('msal'))
-      msalKeys.forEach(key => {
-        localStorage.removeItem(key)
-        logger.info(`Removed localStorage key: ${key}`)
-      })
+      // Clear cookies (primary storage)
+      CookieService.clearAllAuthCookies()
       
-      // Also clear sessionStorage
+      // Clear MSAL's internal cache (sessionStorage only, as configured)
       const msalSessionKeys = Object.keys(sessionStorage).filter(key => key.includes('msal'))
       msalSessionKeys.forEach(key => {
         sessionStorage.removeItem(key)
@@ -184,9 +197,40 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const restoreAuthFromCookies = () => {
+    try {
+      const token = CookieService.getAuthToken()
+      const accountInfo = CookieService.getAccountInfo()
+      
+      if (token && accountInfo) {
+        state.value.accessToken = token
+        state.value.account = accountInfo
+        state.value.isAuthenticated = true
+        logger.info('Auth state restored from cookies')
+        return true
+      }
+      
+      logger.info('No valid auth cookies found')
+      return false
+    } catch (error) {
+      logger.logError(error, 'Failed to restore auth from cookies')
+      CookieService.clearAllAuthCookies() // Clear invalid cookies
+      return false
+    }
+  }
+
   const initializeAuth = async () => {
     try {
       await msalInstance.initialize()
+      
+      // First try to restore from cookies
+      const restored = restoreAuthFromCookies()
+      if (restored) {
+        logger.info('Auth restored from cookies, skipping redirect handling')
+        return
+      }
+      
+      // If no valid cookies, handle redirect result
       await handleRedirectResult()
     } catch (error) {
       logger.logError(error, 'Failed to initialize auth')
@@ -203,6 +247,7 @@ export const useAuthStore = defineStore('auth', () => {
     getAccessToken,
     initializeAuth,
     handleRedirectResult,
-    clearInteractionState
+    clearInteractionState,
+    restoreAuthFromCookies
   }
 })

@@ -21,10 +21,15 @@
           <input
             id="subscriptionId"
             v-model="subscriptionId"
+            @blur="validateSubscriptionId"
             type="text"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             class="form-input"
+            :class="{ 'error': errors.subscriptionId }"
           />
+          <div v-if="errors.subscriptionId" class="error-text">
+            {{ errors.subscriptionId }}
+          </div>
           <small>Optional: Leave empty to use environment variable</small>
         </div>
 
@@ -66,14 +71,39 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { InputValidator, ValidationMessages, useFormValidation } from '../utils/validation'
 
 const authStore = useAuthStore()
 const subscriptionId = ref(import.meta.env.VITE_AZURE_SUBSCRIPTION_ID || '')
 
+const { errors, validateField, clearErrors, hasErrors } = useFormValidation()
+
+const validateSubscriptionId = () => {
+  if (subscriptionId.value.trim() === '') {
+    // Empty is allowed - will use environment variable
+    delete errors.value.subscriptionId
+    return true
+  }
+  
+  return validateField(
+    'subscriptionId',
+    subscriptionId.value,
+    InputValidator.validateSubscriptionId,
+    ValidationMessages.getSubscriptionIdError()
+  )
+}
+
 const handleLogin = async () => {
+  // Validate input before proceeding
+  const isValid = validateSubscriptionId()
+  
+  if (!isValid) {
+    return
+  }
+  
   // Update subscription ID if provided
   if (subscriptionId.value.trim()) {
-    authStore.state.subscriptionId = subscriptionId.value.trim()
+    authStore.state.subscriptionId = InputValidator.sanitizeString(subscriptionId.value.trim(), 36)
   }
   
   await authStore.login()
@@ -81,6 +111,7 @@ const handleLogin = async () => {
 
 const retryLogin = () => {
   authStore.state.error = null
+  clearErrors()
   handleLogin()
 }
 
@@ -153,6 +184,17 @@ label {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
 }
 
 .login-button {
