@@ -28,6 +28,7 @@
   "license": "MIT",
   "dependencies": {
     "@azure/arm-resources": "^7.0.0",
+    "@azure/arm-storage": "^20.0.0",
     "@azure/identity": "^4.0.1",
     "cors": "^2.8.5",
     "express": "^5.0.0",

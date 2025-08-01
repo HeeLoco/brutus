@@ -14,7 +14,7 @@ from api.middleware.error_handler import (
     http_exception_handler,
     general_exception_handler
 )
-from api.routers import health, resource_groups
+from api.routers import health, resource_groups, storage_accounts
 
 # Initialize logging first
 setup_logging()
@@ -53,6 +53,7 @@ app.add_exception_handler(Exception, general_exception_handler)
 # Include routers
 app.include_router(health.router)
 app.include_router(resource_groups.router, prefix=settings.api_v1_prefix)
+app.include_router(storage_accounts.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/", tags=["root"])

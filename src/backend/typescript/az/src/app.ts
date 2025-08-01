@@ -12,6 +12,7 @@ import { RequestWithCorrelation, ApiResponse } from '@/types/express';
 
 import healthRoutes from '@/routes/healthRoutes';
 import resourceGroupRoutes from '@/routes/resourceGroupRoutes';
+import storageAccountRoutes from '@/routes/storageAccountRoutes';
 
 class App {
   public app: Application;
@@ -83,6 +84,7 @@ class App {
           endpoints: {
             health: '/health',
             resourceGroups: `${config.API_PREFIX}/resource-groups`,
+            storageAccounts: `${config.API_PREFIX}/storage-accounts`,
             docs: '/docs' // Future: OpenAPI documentation
           }
         },
@@ -98,6 +100,7 @@ class App {
 
     // API routes
     this.app.use(`${config.API_PREFIX}/resource-groups`, resourceGroupRoutes);
+    this.app.use(`${config.API_PREFIX}/storage-accounts`, storageAccountRoutes);
 
     // API info endpoint
     this.app.get(`${config.API_PREFIX}`, (req: Request, res: Response) => {
@@ -115,7 +118,12 @@ class App {
             'POST /resource-groups - Create resource group',
             'GET /resource-groups/{name} - Get resource group',
             'PUT /resource-groups/{name} - Update resource group',
-            'DELETE /resource-groups/{name} - Delete resource group'
+            'DELETE /resource-groups/{name} - Delete resource group',
+            'GET /storage-accounts - List storage accounts',
+            'POST /storage-accounts - Create storage account',
+            'GET /storage-accounts/{resourceGroup}/{name} - Get storage account',
+            'PUT /storage-accounts/{resourceGroup}/{name} - Update storage account',
+            'DELETE /storage-accounts/{resourceGroup}/{name} - Delete storage account'
           ]
         },
         correlationId,

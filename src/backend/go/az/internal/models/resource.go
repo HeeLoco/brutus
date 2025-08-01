@@ -42,3 +42,49 @@ type AuthError struct {
 func (e *AuthError) Error() string {
 	return e.Message
 }
+
+// StorageAccount represents an Azure storage account
+type StorageAccount struct {
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	Location          string            `json:"location"`
+	ResourceGroup     string            `json:"resourceGroup"`
+	Kind              string            `json:"kind"`
+	SkuName           string            `json:"skuName"`
+	SkuTier           string            `json:"skuTier"`
+	AccessTier        string            `json:"accessTier,omitempty"`
+	AllowBlobPublic   bool              `json:"allowBlobPublicAccess"`
+	AllowSharedKey    bool              `json:"allowSharedKeyAccess"`
+	Tags              map[string]string `json:"tags,omitempty"`
+	CreationTime      string            `json:"creationTime,omitempty"`
+	PrimaryEndpoints  *StorageEndpoints `json:"primaryEndpoints,omitempty"`
+}
+
+// StorageEndpoints represents storage account endpoints
+type StorageEndpoints struct {
+	Blob  string `json:"blob,omitempty"`
+	Queue string `json:"queue,omitempty"`
+	Table string `json:"table,omitempty"`
+	File  string `json:"file,omitempty"`
+}
+
+// CreateStorageAccountRequest represents the request to create a storage account
+type CreateStorageAccountRequest struct {
+	Name              string            `json:"name" binding:"required"`
+	ResourceGroup     string            `json:"resourceGroup" binding:"required"`
+	Location          string            `json:"location" binding:"required"`
+	Kind              string            `json:"kind,omitempty"` // StorageV2, BlobStorage, etc.
+	SkuName           string            `json:"skuName,omitempty"` // Standard_LRS, Premium_LRS, etc.
+	AccessTier        string            `json:"accessTier,omitempty"` // Hot, Cool, Archive
+	AllowBlobPublic   *bool             `json:"allowBlobPublicAccess,omitempty"`
+	AllowSharedKey    *bool             `json:"allowSharedKeyAccess,omitempty"`
+	Tags              map[string]string `json:"tags,omitempty"`
+}
+
+// UpdateStorageAccountRequest represents the request to update a storage account
+type UpdateStorageAccountRequest struct {
+	AccessTier      string            `json:"accessTier,omitempty"`
+	AllowBlobPublic *bool             `json:"allowBlobPublicAccess,omitempty"`
+	AllowSharedKey  *bool             `json:"allowSharedKeyAccess,omitempty"`
+	Tags            map[string]string `json:"tags,omitempty"`
+}

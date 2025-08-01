@@ -50,3 +50,51 @@ export interface HealthCheckResponse {
     };
   };
 }
+
+// Storage Account Types
+export interface StorageEndpoints {
+  blob?: string;
+  queue?: string;
+  table?: string;
+  file?: string;
+}
+
+export interface StorageAccount {
+  id: string;
+  name: string;
+  location: string;
+  resourceGroup: string;
+  kind: string;
+  skuName: string;
+  skuTier?: string;
+  accessTier?: string;
+  allowBlobPublicAccess?: boolean;
+  allowSharedKeyAccess?: boolean;
+  tags?: Record<string, string>;
+  creationTime?: string;
+  primaryEndpoints?: StorageEndpoints;
+}
+
+export interface CreateStorageAccountRequest {
+  name: string;
+  resourceGroup: string;
+  location: string;
+  kind?: string;
+  skuName?: string;
+  accessTier?: string;
+  allowBlobPublicAccess?: boolean;
+  allowSharedKeyAccess?: boolean;
+  tags?: Record<string, string>;
+}
+
+export interface UpdateStorageAccountRequest {
+  accessTier?: string;
+  allowBlobPublicAccess?: boolean;
+  allowSharedKeyAccess?: boolean;
+  tags?: Record<string, string>;
+}
+
+export interface StorageAccountList {
+  value: StorageAccount[];
+  nextLink?: string;
+}

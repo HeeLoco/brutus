@@ -5,6 +5,7 @@ uvicorn[standard]==0.35.0
 # Azure SDK
 azure-identity==1.23.1
 azure-mgmt-resource==24.0.0
+azure-mgmt-storage==22.0.0
 
 # Configuration and validation
 pydantic==2.11.7

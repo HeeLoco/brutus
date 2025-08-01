@@ -1,9 +1,14 @@
 import { ResourceManagementClient } from '@azure/arm-resources';
+import { StorageManagementClient } from '@azure/arm-storage';
 import { DefaultAzureCredential, ClientSecretCredential, TokenCredential } from '@azure/identity';
 import { 
   ResourceGroup, 
   CreateResourceGroupRequest, 
   UpdateResourceGroupRequest,
+  StorageAccount,
+  CreateStorageAccountRequest,
+  UpdateStorageAccountRequest,
+  StorageEndpoints,
   AzureErrorResponse 
 } from '@/types/azure';
 import config from '@/config/environment';
@@ -23,11 +28,13 @@ export class AzureResourceError extends Error {
 
 export class AzureService {
   private resourceClient: ResourceManagementClient;
+  private storageClient: StorageManagementClient;
   private logger = createLogger();
 
   constructor(correlationId?: string) {
     this.logger = createLogger(correlationId);
     this.resourceClient = this.createResourceClient();
+    this.storageClient = this.createStorageClient();
   }
 
   private createResourceClient(): ResourceManagementClient {
@@ -59,6 +66,41 @@ export class AzureService {
       this.logger.error('Failed to create Azure resource client', { error });
       throw new AzureResourceError(
         'Failed to initialize Azure connection',
+        'INITIALIZATION_ERROR',
+        503
+      );
+    }
+  }
+
+  private createStorageClient(): StorageManagementClient {
+    try {
+      let credential: TokenCredential;
+
+      // Use the same credential as resource client
+      if (config.AZURE_CLIENT_ID && config.AZURE_CLIENT_SECRET && config.AZURE_TENANT_ID) {
+        this.logger.info('Using service principal authentication for storage client');
+        credential = new ClientSecretCredential(
+          config.AZURE_TENANT_ID,
+          config.AZURE_CLIENT_ID,
+          config.AZURE_CLIENT_SECRET
+        );
+      } else {
+        this.logger.info('Using default Azure credential for storage client');
+        credential = new DefaultAzureCredential();
+      }
+
+      const client = new StorageManagementClient(
+        credential,
+        config.AZURE_SUBSCRIPTION_ID
+      );
+
+      this.logger.info('Successfully created Azure storage client');
+      return client;
+
+    } catch (error) {
+      this.logger.error('Failed to create Azure storage client', { error });
+      throw new AzureResourceError(
+        'Failed to initialize Azure storage connection',
         'INITIALIZATION_ERROR',
         503
       );
@@ -222,6 +264,225 @@ export class AzureService {
       this.handleAzureError(error, name);
       throw error;
     }
+  }
+
+  // Storage Account Methods
+
+  async listStorageAccounts(): Promise<StorageAccount[]> {
+    try {
+      this.logger.info('Listing storage accounts');
+      const storageAccounts: StorageAccount[] = [];
+
+      for await (const account of this.storageClient.storageAccounts.list()) {
+        const resourceGroup = this.extractResourceGroupFromId(account.id ?? '');
+        const storageAccount: StorageAccount = {
+          id: account.id ?? '',
+          name: account.name ?? '',
+          location: account.location ?? '',
+          resourceGroup,
+          kind: account.kind ?? 'StorageV2',
+          skuName: account.sku?.name ?? 'Standard_LRS',
+          skuTier: account.sku?.tier,
+          accessTier: account.accessTier,
+          allowBlobPublicAccess: account.allowBlobPublicAccess,
+          allowSharedKeyAccess: account.allowSharedKeyAccess,
+          tags: account.tags ?? {},
+          creationTime: account.creationTime?.toISOString(),
+          primaryEndpoints: account.primaryEndpoints ? {
+            blob: account.primaryEndpoints.blob,
+            queue: account.primaryEndpoints.queue,
+            table: account.primaryEndpoints.table,
+            file: account.primaryEndpoints.file
+          } : undefined
+        };
+        storageAccounts.push(storageAccount);
+      }
+
+      this.logger.info(`Found ${storageAccounts.length} storage accounts`);
+      return storageAccounts;
+
+    } catch (error) {
+      this.logger.error('Failed to list storage accounts', { error });
+      this.handleAzureError(error);
+      throw error;
+    }
+  }
+
+  async getStorageAccount(resourceGroup: string, name: string): Promise<StorageAccount> {
+    try {
+      this.logger.info(`Getting storage account: ${name} in resource group: ${resourceGroup}`);
+      
+      const account = await this.storageClient.storageAccounts.getProperties(resourceGroup, name);
+      
+      const storageAccount: StorageAccount = {
+        id: account.id ?? '',
+        name: account.name ?? '',
+        location: account.location ?? '',
+        resourceGroup,
+        kind: account.kind ?? 'StorageV2',
+        skuName: account.sku?.name ?? 'Standard_LRS',
+        skuTier: account.sku?.tier,
+        accessTier: account.accessTier,
+        allowBlobPublicAccess: account.allowBlobPublicAccess,
+        allowSharedKeyAccess: account.allowSharedKeyAccess,
+        tags: account.tags ?? {},
+        creationTime: account.creationTime?.toISOString(),
+        primaryEndpoints: account.primaryEndpoints ? {
+          blob: account.primaryEndpoints.blob,
+          queue: account.primaryEndpoints.queue,
+          table: account.primaryEndpoints.table,
+          file: account.primaryEndpoints.file
+        } : undefined
+      };
+
+      this.logger.info(`Successfully retrieved storage account: ${name}`);
+      return storageAccount;
+
+    } catch (error) {
+      this.logger.error(`Failed to get storage account ${name}`, { error });
+      this.handleAzureError(error, name);
+      throw error;
+    }
+  }
+
+  async createStorageAccount(request: CreateStorageAccountRequest): Promise<StorageAccount> {
+    try {
+      this.logger.info(`Creating storage account: ${request.name}`);
+      
+      const parameters = {
+        location: request.location,
+        kind: request.kind || 'StorageV2',
+        sku: {
+          name: request.skuName || 'Standard_LRS'
+        },
+        properties: {
+          accessTier: request.accessTier,
+          allowBlobPublicAccess: request.allowBlobPublicAccess ?? false,
+          allowSharedKeyAccess: request.allowSharedKeyAccess ?? true
+        },
+        tags: request.tags ?? {}
+      };
+
+      // Start creation (this is an async operation)
+      const createPoller = await this.storageClient.storageAccounts.beginCreate(
+        request.resourceGroup,
+        request.name,
+        parameters
+      );
+
+      // Wait for completion
+      const result = await createPoller.pollUntilDone();
+
+      const storageAccount: StorageAccount = {
+        id: result.id ?? '',
+        name: result.name ?? '',
+        location: result.location ?? '',
+        resourceGroup: request.resourceGroup,
+        kind: result.kind ?? 'StorageV2',
+        skuName: result.sku?.name ?? 'Standard_LRS',
+        skuTier: result.sku?.tier,
+        accessTier: result.accessTier,
+        allowBlobPublicAccess: result.allowBlobPublicAccess,
+        allowSharedKeyAccess: result.allowSharedKeyAccess,
+        tags: result.tags ?? {},
+        creationTime: result.creationTime?.toISOString(),
+        primaryEndpoints: result.primaryEndpoints ? {
+          blob: result.primaryEndpoints.blob,
+          queue: result.primaryEndpoints.queue,
+          table: result.primaryEndpoints.table,
+          file: result.primaryEndpoints.file
+        } : undefined
+      };
+
+      this.logger.info(`Successfully created storage account: ${request.name}`);
+      return storageAccount;
+
+    } catch (error) {
+      this.logger.error(`Failed to create storage account ${request.name}`, { error });
+      this.handleAzureError(error, request.name);
+      throw error;
+    }
+  }
+
+  async updateStorageAccount(resourceGroup: string, name: string, request: UpdateStorageAccountRequest): Promise<StorageAccount> {
+    try {
+      this.logger.info(`Updating storage account: ${name}`);
+      
+      // First check if storage account exists
+      await this.getStorageAccount(resourceGroup, name);
+      
+      const parameters = {
+        properties: {
+          accessTier: request.accessTier,
+          allowBlobPublicAccess: request.allowBlobPublicAccess,
+          allowSharedKeyAccess: request.allowSharedKeyAccess
+        },
+        tags: request.tags
+      };
+
+      const result = await this.storageClient.storageAccounts.update(resourceGroup, name, parameters);
+
+      const storageAccount: StorageAccount = {
+        id: result.id ?? '',
+        name: result.name ?? '',
+        location: result.location ?? '',
+        resourceGroup,
+        kind: result.kind ?? 'StorageV2',
+        skuName: result.sku?.name ?? 'Standard_LRS',
+        skuTier: result.sku?.tier,
+        accessTier: result.accessTier,
+        allowBlobPublicAccess: result.allowBlobPublicAccess,
+        allowSharedKeyAccess: result.allowSharedKeyAccess,
+        tags: result.tags ?? {},
+        creationTime: result.creationTime?.toISOString(),
+        primaryEndpoints: result.primaryEndpoints ? {
+          blob: result.primaryEndpoints.blob,
+          queue: result.primaryEndpoints.queue,
+          table: result.primaryEndpoints.table,
+          file: result.primaryEndpoints.file
+        } : undefined
+      };
+
+      this.logger.info(`Successfully updated storage account: ${name}`);
+      return storageAccount;
+
+    } catch (error) {
+      this.logger.error(`Failed to update storage account ${name}`, { error });
+      this.handleAzureError(error, name);
+      throw error;
+    }
+  }
+
+  async deleteStorageAccount(resourceGroup: string, name: string): Promise<void> {
+    try {
+      this.logger.info(`Deleting storage account: ${name}`);
+      
+      // First check if storage account exists
+      await this.getStorageAccount(resourceGroup, name);
+      
+      // Delete the storage account
+      await this.storageClient.storageAccounts.delete(resourceGroup, name);
+      
+      this.logger.info(`Successfully deleted storage account: ${name}`);
+      
+    } catch (error) {
+      this.logger.error(`Failed to delete storage account ${name}`, { error });
+      this.handleAzureError(error, name);
+      throw error;
+    }
+  }
+
+  private extractResourceGroupFromId(resourceId: string): string {
+    if (!resourceId) return '';
+    
+    const parts = resourceId.split('/');
+    const rgIndex = parts.findIndex(part => part === 'resourceGroups');
+    
+    if (rgIndex !== -1 && rgIndex + 1 < parts.length) {
+      return parts[rgIndex + 1];
+    }
+    
+    return '';
   }
 
   private handleAzureError(error: any, resourceName?: string): never {

@@ -32,6 +32,7 @@ func main() {
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
 	tokenResourceHandler := handlers.NewTokenResourceHandler(tokenAzureService)
+	storageAccountHandler := handlers.NewStorageAccountHandler(tokenAzureService)
 	logHandler := handlers.NewLogHandler()
 
 	// Health check routes
@@ -60,6 +61,17 @@ func main() {
 			rg.GET("/:name", tokenResourceHandler.GetResourceGroup) // No CSRF for GET
 			rg.PUT("/:name", tokenResourceHandler.UpdateResourceGroup) // CSRF protected
 			rg.DELETE("/:name", tokenResourceHandler.DeleteResourceGroup) // CSRF protected
+		}
+
+		// Storage account routes (using user tokens) with CSRF protection
+		sa := v1.Group("/storage-accounts")
+		sa.Use(middleware.CSRFProtection()) // Protect state-changing operations
+		{
+			sa.GET("", storageAccountHandler.ListStorageAccounts)                                      // No CSRF for GET
+			sa.POST("", storageAccountHandler.CreateStorageAccount)                                    // CSRF protected
+			sa.GET("/:resourceGroup/:name", storageAccountHandler.GetStorageAccount)                   // No CSRF for GET
+			sa.PUT("/:resourceGroup/:name", storageAccountHandler.UpdateStorageAccount)                // CSRF protected
+			sa.DELETE("/:resourceGroup/:name", storageAccountHandler.DeleteStorageAccount)             // CSRF protected
 		}
 	}
 
