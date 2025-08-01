@@ -25,10 +25,10 @@
             class="form-select"
           >
             <option value="demo">Demo Mode (Mock Data)</option>
-            <option value="backend-go">Go Backend with User Token (Port 8081)</option>
-            <option value="backend-python">Python Backend with User Token (Port 8000)</option>
-            <option value="backend-typescript">TypeScript Backend with User Token (Port 3000)</option>
-            <option value="azure-direct">Azure Direct (Pure Azure API)</option>
+            <option value="backend-go">Go Backend (Port 8080) - Currently Running</option>
+            <option value="backend-python" disabled>Python Backend (Port 8000) - Not Available</option>
+            <option value="backend-typescript" disabled>TypeScript Backend (Port 3000) - Not Available</option>
+            <option value="azure-direct">Azure Direct (Real Azure API)</option>
           </select>
         </div>
 
@@ -66,13 +66,14 @@
         </div>
 
         <div class="info-box">
-          <h4>Demo Mode</h4>
-          <p>This allows you to test the frontend without setting up Azure authentication:</p>
+          <h4>Available Modes</h4>
+          <p>Choose your preferred way to interact with Azure resources:</p>
           <ul>
-            <li><strong>Demo Mode:</strong> Uses mock data, no backend required</li>
-            <li><strong>Backend Mode:</strong> Connects to your backend API servers</li>
-            <li><strong>Azure Direct:</strong> Uses MSAL for real Azure authentication</li>
+            <li><strong>Demo Mode:</strong> Uses mock data, perfect for testing (no setup required)</li>
+            <li><strong>Go Backend:</strong> Connects to the running Go API server (currently available)</li>
+            <li><strong>Azure Direct:</strong> Real Azure authentication with your credentials</li>
           </ul>
+          <p><em>Note: Python and TypeScript backends are implemented but not currently running in Docker.</em></p>
         </div>
 
         <div v-if="apiMode === 'azure-direct'" class="setup-info">
@@ -90,6 +91,7 @@ VITE_AZURE_SUBSCRIPTION_ID=your-subscription-id</code></pre>
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { CookieService } from '../services/cookies'
 
 const authStore = useAuthStore()
 const subscriptionId = ref('7b1c880d-e26e-4916-b60d-5e475ea49dca')
@@ -113,19 +115,25 @@ const handleLogin = async () => {
     
     if (apiMode.value === 'azure-direct') {
       console.log('Using MSAL authentication')
+      authStore.state.apiMode = 'azure-direct'
+      // Save apiMode to cookies immediately to persist through MSAL redirect
+      CookieService.setApiMode('azure-direct')
       // Use MSAL authentication - don't set isAuthenticated here, let MSAL handle it
       await authStore.login()
     } else {
       console.log('Using demo/backend mode')
-      // Direct login for demo/backend modes
+      // Direct login for demo/backend modes - keep the specific mode
+      authStore.state.apiMode = apiMode.value as 'demo' | 'backend' | 'backend-go' | 'backend-python' | 'backend-typescript' | 'azure' | 'azure-direct'
+      // Save apiMode to cookies
+      CookieService.setApiMode(apiMode.value)
       authStore.state.isAuthenticated = true
       authStore.state.account = {
         homeAccountId: 'demo-account',
         environment: 'demo',
         tenantId: 'demo-tenant',
-        username: apiMode.value === 'demo' ? 'demo@demo.com' : 'backend-user@demo.com',
+        username: apiMode.value === 'demo' ? 'demo@demo.com' : `${apiMode.value}@demo.com`,
         localAccountId: 'demo-local',
-        name: apiMode.value === 'demo' ? 'Demo User' : 'Backend User'
+        name: apiMode.value === 'demo' ? 'Demo User' : `${apiMode.value.replace('-', ' ').replace('backend', 'Backend')} User`
       }
     }
     

@@ -2,11 +2,8 @@
   <div class="resource-groups-container">
     <div class="header">
       <div class="header-content">
-        <h1>Azure Resource Groups</h1>
-        <div class="header-info">
-          <span class="subscription-id">{{ authStore.state.subscriptionId }}</span>
-          <span class="user-info">{{ authStore.state.account?.username || authStore.state.account?.name || 'Azure User' }}</span>
-        </div>
+        <h1>Resource Groups</h1>
+        <p class="page-subtitle">Manage your Azure resource groups</p>
       </div>
       <div class="header-actions">
         <button @click="refreshResourceGroups" :disabled="loading" class="refresh-button">
@@ -16,12 +13,6 @@
         </button>
         <button @click="showCreateModal = true" class="create-button">
           + Create Resource Group
-        </button>
-        <router-link to="/debug" class="debug-link">
-          🔧 Debug
-        </router-link>
-        <button @click="authStore.logout()" class="logout-button">
-          Logout
         </button>
       </div>
     </div>
@@ -198,7 +189,7 @@ const initializeApiService = async () => {
   }
   
   // Select backend URL based on the authenticated mode
-  let backendUrl = 'http://localhost:8081/api/v1' // Default to Go backend
+  let backendUrl = 'http://localhost:8080/api/v1' // Default to Go backend
   if (authStore.state.account?.username?.includes('python')) {
     backendUrl = 'http://localhost:8000/api/v1'
   } else if (authStore.state.account?.username?.includes('typescript')) {
@@ -351,9 +342,9 @@ onMounted(async () => {
 
 <style scoped>
 .resource-groups-container {
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 2rem;
+  background: #f8fafc;
+  min-height: 100vh;
 }
 
 .header {
@@ -367,16 +358,15 @@ onMounted(async () => {
 
 .header-content h1 {
   margin: 0;
-  color: #1f2937;
+  color: #1e293b;
   font-size: 2rem;
-  font-weight: bold;
+  font-weight: 700;
 }
 
-.header-info {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-top: 0.5rem;
+.page-subtitle {
+  margin: 0.5rem 0 0 0;
+  color: #64748b;
+  font-size: 1rem;
 }
 
 .subscription-id {
@@ -439,15 +429,25 @@ onMounted(async () => {
 .logout-button:hover {
   background: #dc2626;
 }
-.debug-link {
+.nav-link, .debug-link {
   padding: 0.5rem 1rem;
-  background: #8b5cf6;
   color: white;
   text-decoration: none;
   border-radius: 6px;
   font-weight: 500;
   font-size: 0.875rem;
   transition: background-color 0.2s;
+}
+
+.nav-link {
+  background: #6366f1;
+}
+.nav-link:hover {
+  background: #4f46e5;
+}
+
+.debug-link {
+  background: #8b5cf6;
 }
 .debug-link:hover {
   background: #7c3aed;

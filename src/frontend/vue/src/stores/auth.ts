@@ -10,6 +10,7 @@ export interface AuthState {
   account: AccountInfo | null
   accessToken: string | null
   subscriptionId: string | null
+  apiMode: 'demo' | 'backend' | 'backend-go' | 'backend-python' | 'backend-typescript' | 'azure' | 'azure-direct' | null
   loading: boolean
   error: string | null
 }
@@ -20,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
     account: null,
     accessToken: null,
     subscriptionId: import.meta.env.VITE_AZURE_SUBSCRIPTION_ID || null,
+    apiMode: null,
     loading: false,
     error: null
   })
@@ -128,25 +130,71 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       state.value.loading = true
       
+      // Check if this is a demo/backend mode (not using real MSAL authentication)
+      const isDemoMode = state.value.apiMode === 'demo' || 
+                         state.value.apiMode === 'backend' ||
+                         state.value.apiMode === 'backend-go' ||
+                         state.value.apiMode === 'backend-python' ||
+                         state.value.apiMode === 'backend-typescript' ||
+                         state.value.account?.username?.includes('demo') || 
+                         state.value.account?.username?.includes('backend') ||
+                         !state.value.accessToken
+      
+      logger.info('Logout initiated', { 
+        isDemoMode, 
+        apiMode: state.value.apiMode, 
+        username: state.value.account?.username 
+      })
+      
+      // Store account reference before clearing state
+      const accountForLogout = state.value.account
+      
       // Clear cookies first
       CookieService.clearAllAuthCookies()
       logger.info('Auth cookies cleared')
       
-      // Clear state
+      // Force clear any session storage
+      try {
+        const msalKeys = Object.keys(sessionStorage).filter(key => key.includes('msal'))
+        msalKeys.forEach(key => {
+          sessionStorage.removeItem(key)
+        })
+        logger.info('MSAL session storage cleared')
+      } catch (e) {
+        logger.warn('Failed to clear session storage', e as Record<string, any>)
+      }
+      
+      // Clear state completely
+      const wasAuthenticated = state.value.isAuthenticated
       state.value.isAuthenticated = false
       state.value.account = null
       state.value.accessToken = null
+      state.value.apiMode = null
+      state.value.subscriptionId = null
       state.value.error = null
+      state.value.loading = false
 
-      // Perform logout
-      await msalInstance.logoutRedirect({
-        account: state.value.account
-      })
+      logger.info('Auth state cleared', { wasAuthenticated, isDemoMode })
+
+      // Only perform MSAL logout for real Azure authentication
+      if (!isDemoMode && wasAuthenticated && accountForLogout) {
+        logger.info('Performing MSAL logout for Azure authentication')
+        await msalInstance.logoutRedirect({
+          account: accountForLogout
+        })
+      } else {
+        logger.info('Demo/backend mode logout completed - state cleared without MSAL redirect')
+      }
     } catch (error) {
       logger.logError(error, 'Logout failed')
-      state.value.error = error instanceof Error ? error.message : 'Logout failed'
-    } finally {
+      // Force clear state even if there's an error
+      state.value.isAuthenticated = false
+      state.value.account = null
+      state.value.accessToken = null
+      state.value.apiMode = null
+      state.value.subscriptionId = null
       state.value.loading = false
+      state.value.error = error instanceof Error ? error.message : 'Logout failed'
     }
   }
 
@@ -155,6 +203,12 @@ export const useAuthStore = defineStore('auth', () => {
     state.value.account = response.account
     state.value.accessToken = response.accessToken
     state.value.error = null
+    
+    // Preserve apiMode if it was already set (important for Azure Direct mode)
+    if (!state.value.apiMode) {
+      // If no apiMode was set, default to 'azure-direct' since we're using MSAL
+      state.value.apiMode = 'azure-direct'
+    }
 
     // Store auth data in cookies
     if (response.accessToken) {
@@ -164,6 +218,11 @@ export const useAuthStore = defineStore('auth', () => {
     
     if (response.account) {
       CookieService.setAccountInfo(response.account)
+    }
+
+    // Store apiMode in cookies
+    if (state.value.apiMode) {
+      CookieService.setApiMode(state.value.apiMode)
     }
 
     logger.info('Auth state saved to cookies')
@@ -188,6 +247,7 @@ export const useAuthStore = defineStore('auth', () => {
       state.value.isAuthenticated = false
       state.value.account = null
       state.value.accessToken = null
+      state.value.apiMode = null
       state.value.loading = false
       state.value.error = null
       
@@ -201,12 +261,19 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const token = CookieService.getAuthToken()
       const accountInfo = CookieService.getAccountInfo()
+      const apiMode = CookieService.getApiMode()
       
       if (token && accountInfo) {
         state.value.accessToken = token
         state.value.account = accountInfo
         state.value.isAuthenticated = true
-        logger.info('Auth state restored from cookies')
+        
+        // Restore apiMode from cookies
+        if (apiMode) {
+          state.value.apiMode = apiMode as 'demo' | 'backend' | 'backend-go' | 'backend-python' | 'backend-typescript' | 'azure' | 'azure-direct'
+        }
+        
+        logger.info('Auth state restored from cookies', { apiMode })
         return true
       }
       

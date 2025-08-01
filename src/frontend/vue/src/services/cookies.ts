@@ -164,11 +164,29 @@ export class CookieService {
     this.remove('account_info', { secure: true, sameSite: 'strict' })
   }
 
+  // Store API mode
+  static setApiMode(apiMode: string): void {
+    this.set('api_mode', apiMode, {
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 86400 // 24 hours
+    })
+  }
+
+  static getApiMode(): string | null {
+    return this.get('api_mode')
+  }
+
+  static removeApiMode(): void {
+    this.remove('api_mode', { secure: true, sameSite: 'strict' })
+  }
+
   // Clear all auth-related cookies
   static clearAllAuthCookies(): void {
     this.removeAuthToken()
     this.removeRefreshToken()
     this.removeAccountInfo()
+    this.removeApiMode()
     
     // Also clear any MSAL-related cookies
     const allCookies = document.cookie.split(';')
