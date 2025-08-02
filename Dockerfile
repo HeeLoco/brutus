@@ -16,7 +16,7 @@ COPY . .
 RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o brutus cmd/brutus/main.go
 
 # Production stage
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Install Azure CLI and basic tools
 RUN apt-get update && apt-get install -y \
