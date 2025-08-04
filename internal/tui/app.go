@@ -14,20 +14,23 @@ import (
 
 // App represents the main TUI application
 type App struct {
-	keys                 keyMap
-	width                int
-	height               int
-	state                AppState
-	selectedItem         int
-	menuItems            []string
-	azureAuth            *azure.AuthInfo
-	subscriptions        []*armsubscriptions.Subscription
-	authStatus           string
-	isAuthenticating     bool
-	managementGroupTree  *azure.ManagementGroupNode
-	mgMenuItems          []string
-	isLoadingMGs         bool
-	mgActionFeedback     string
+	keys                  keyMap
+	width                 int
+	height                int
+	state                 AppState
+	selectedItem          int
+	menuItems             []string
+	azureAuth             *azure.AuthInfo
+	subscriptions         []*armsubscriptions.Subscription
+	authStatus            string
+	isAuthenticating      bool
+	managementGroupTree   *azure.ManagementGroupNode
+	mgMenuItems           []string
+	isLoadingMGs          bool
+	mgActionFeedback      string
+	cafComparisonOptions  []string
+	selectedCAFStructure  int
+	cafConfirmationOptions []string
 }
 
 // AppState represents the current state of the application
@@ -38,6 +41,8 @@ const (
 	StateAzureSetup
 	StateCAFSetup
 	StateResourceCreation
+	StateCAFStructureComparison
+	StateCAFConfirmation
 )
 
 // Messages for async operations
@@ -107,6 +112,8 @@ func loadMGsCmd(auth *azure.AuthInfo) tea.Cmd {
 type keyMap struct {
 	Up    key.Binding
 	Down  key.Binding
+	Left  key.Binding
+	Right key.Binding
 	Enter key.Binding
 	Back  key.Binding
 	Quit  key.Binding
@@ -143,6 +150,16 @@ func NewApp() *App {
 		"🔄 Refresh Management Groups",
 	}
 
+	cafComparisonOptions := []string{
+		"✅ Apply Recommended Structure",
+		"❌ Cancel (Go Back)",
+	}
+
+	cafConfirmationOptions := []string{
+		"✅ Yes, Apply Structure",
+		"❌ No, Go Back",
+	}
+
 	return &App{
 		keys: keyMap{
 			Up: key.NewBinding(
@@ -152,6 +169,14 @@ func NewApp() *App {
 			Down: key.NewBinding(
 				key.WithKeys("down", "j"),
 				key.WithHelp("↓/j", "move down"),
+			),
+			Left: key.NewBinding(
+				key.WithKeys("left", "h"),
+				key.WithHelp("←/h", "move left"),
+			),
+			Right: key.NewBinding(
+				key.WithKeys("right", "l"),
+				key.WithHelp("→/l", "move right"),
 			),
 			Enter: key.NewBinding(
 				key.WithKeys("enter"),
@@ -166,10 +191,13 @@ func NewApp() *App {
 				key.WithHelp("q", "quit"),
 			),
 		},
-		state:        StateMainMenu,
-		selectedItem: 0,
-		menuItems:    menuItems,
-		mgMenuItems:  mgMenuItems,
+		state:                 StateMainMenu,
+		selectedItem:          0,
+		menuItems:             menuItems,
+		mgMenuItems:           mgMenuItems,
+		cafComparisonOptions:  cafComparisonOptions,
+		selectedCAFStructure:  0, // Default to Basic structure
+		cafConfirmationOptions: cafConfirmationOptions,
 	}
 }
 
@@ -219,7 +247,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, a.keys.Quit):
 			return a, tea.Quit
 		case key.Matches(msg, a.keys.Back):
-			if a.state != StateMainMenu {
+			switch a.state {
+			case StateMainMenu:
+				// Already at main menu, do nothing
+			case StateCAFStructureComparison:
+				// Go back to CAF setup
+				a.state = StateCAFSetup
+				a.selectedItem = 0
+			case StateCAFConfirmation:
+				// Go back to CAF structure comparison
+				a.state = StateCAFStructureComparison
+				a.selectedItem = 0
+			default:
+				// Go back to main menu
 				a.state = StateMainMenu
 				a.selectedItem = 0
 				a.mgActionFeedback = "" // Clear any feedback when going back
@@ -235,6 +275,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if a.selectedItem > 0 {
 					a.selectedItem--
 				}
+			case StateCAFStructureComparison:
+				if a.selectedItem > 0 {
+					a.selectedItem--
+				}
+			case StateCAFConfirmation:
+				if a.selectedItem > 0 {
+					a.selectedItem--
+				}
+			}
+			return a, nil
+		case key.Matches(msg, a.keys.Left):
+			if a.state == StateCAFStructureComparison {
+				// Navigate between CAF structure types
+				if a.selectedCAFStructure > 0 {
+					a.selectedCAFStructure--
+				}
+			}
+			return a, nil
+		case key.Matches(msg, a.keys.Right):
+			if a.state == StateCAFStructureComparison {
+				// Navigate between CAF structure types  
+				if a.selectedCAFStructure < 2 { // 0=basic, 1=enterprise, 2=minimal
+					a.selectedCAFStructure++
+				}
 			}
 			return a, nil
 		case key.Matches(msg, a.keys.Down):
@@ -245,6 +309,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case StateCAFSetup:
 				if a.selectedItem < len(a.mgMenuItems)-1 {
+					a.selectedItem++
+				}
+			case StateCAFStructureComparison:
+				if a.selectedItem < len(a.cafComparisonOptions)-1 {
+					a.selectedItem++
+				}
+			case StateCAFConfirmation:
+				if a.selectedItem < len(a.cafConfirmationOptions)-1 {
 					a.selectedItem++
 				}
 			}
@@ -281,8 +353,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Rename All Management Groups - mock
 					a.mgActionFeedback = "🏷️ Mock: Renaming all management groups with CAF conventions..."
 				case 3:
-					// Apply Basic CAF Management Structure - mock
-					a.mgActionFeedback = "🏗️ Mock: Applying basic CAF management structure to tenant..."
+					// Apply Basic CAF Management Structure - show comparison
+					a.state = StateCAFStructureComparison
+					a.selectedItem = 0
+					a.mgActionFeedback = ""
 				case 4:
 					// Refresh Management Groups
 					a.mgActionFeedback = ""
@@ -290,6 +364,31 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						a.isLoadingMGs = true
 						return a, loadMGsCmd(a.azureAuth)
 					}
+				}
+			} else if a.state == StateCAFStructureComparison {
+				// Handle CAF structure comparison actions
+				switch a.selectedItem {
+				case 0:
+					// Apply Recommended Structure - ask for confirmation
+					a.state = StateCAFConfirmation
+					a.selectedItem = 0
+				case 1:
+					// Cancel - go back to CAF setup
+					a.state = StateCAFSetup
+					a.selectedItem = 0
+				}
+			} else if a.state == StateCAFConfirmation {
+				// Handle CAF confirmation actions
+				switch a.selectedItem {
+				case 0:
+					// Yes, Apply Structure - mock implementation
+					a.mgActionFeedback = "🏗️ Mock: Applying recommended CAF structure to tenant..."
+					a.state = StateCAFSetup
+					a.selectedItem = 0
+				case 1:
+					// No, Go Back - return to comparison
+					a.state = StateCAFStructureComparison
+					a.selectedItem = 0
 				}
 			}
 			return a, nil
@@ -323,6 +422,10 @@ func (a *App) View() string {
 		content = a.renderCAFSetup()
 	case StateResourceCreation:
 		content = a.renderResourceCreation()
+	case StateCAFStructureComparison:
+		content = a.renderCAFStructureComparison()
+	case StateCAFConfirmation:
+		content = a.renderCAFConfirmation()
 	}
 
 	// Footer with help
@@ -330,7 +433,14 @@ func (a *App) View() string {
 		Foreground(lipgloss.Color("#6B7280")).
 		MarginTop(2)
 
-	footer := footerStyle.Render("Use ↑/↓ to navigate • Enter to select • ESC to go back • q to quit")
+	var helpText string
+	if a.state == StateCAFStructureComparison {
+		helpText = "Use ↑/↓ to navigate • ←/→ to change structure type • Enter to select • ESC to go back • q to quit"
+	} else {
+		helpText = "Use ↑/↓ to navigate • Enter to select • ESC to go back • q to quit"
+	}
+	
+	footer := footerStyle.Render(helpText)
 
 	// Combine all parts
 	return lipgloss.JoinVertical(
@@ -708,6 +818,242 @@ func (a *App) renderCAFActionMenu() string {
 	}
 
 	return menuStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderCAFStructureComparison() string {
+	// Structure Type Selection
+	typeSection := a.renderCAFStructureTypeSelection()
+	
+	// Side-by-side comparison
+	comparisonSection := a.renderSideBySideComparison()
+	
+	// Action options
+	actionSection := a.renderCAFComparisonActions()
+	
+	return lipgloss.JoinVertical(lipgloss.Left, typeSection, comparisonSection, actionSection)
+}
+
+func (a *App) renderCAFStructureTypeSelection() string {
+	typeStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#F59E0B")).
+		Padding(1, 2).
+		MarginBottom(1)
+
+	var content []string
+	content = append(content, "🏗️ Apply Basic CAF Management Structure")
+	content = append(content, "")
+	content = append(content, "Select recommended structure type:")
+	content = append(content, "")
+	
+	structures := []struct {
+		name        string
+		description string
+	}{
+		{"Basic CAF", "Small-Medium organizations (Platform, Landing Zones, Sandbox)"},
+		{"Enterprise CAF", "Large organizations (+ Security, SAP, AVS, Decommissioned)"},
+		{"Minimal CAF", "Startups/Simple setups (Platform + Corp only)"},
+	}
+
+	for i, structure := range structures {
+		marker := "  "
+		if i == a.selectedCAFStructure {
+			marker = "► "
+		}
+		content = append(content, fmt.Sprintf("%s%s - %s", marker, structure.name, structure.description))
+	}
+
+	return typeStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderSideBySideComparison() string {
+	// Get current and recommended structures
+	var currentStructure, recommendedStructure *azure.ManagementGroupNode
+	
+	if a.managementGroupTree != nil {
+		currentStructure = a.managementGroupTree
+	}
+
+	if a.azureAuth != nil {
+		structureTypes := []string{"basic", "enterprise", "minimal"}
+		recommendedStructure = a.azureAuth.GetRecommendedCAFStructure(structureTypes[a.selectedCAFStructure])
+	}
+
+	// Create side-by-side layout
+	currentSection := a.renderStructureColumn("Current Structure", currentStructure, "#DC2626")
+	recommendedSection := a.renderStructureColumn("Recommended Structure", recommendedStructure, "#059669")
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, currentSection, "  ", recommendedSection)
+}
+
+func (a *App) renderStructureColumn(title string, structure *azure.ManagementGroupNode, borderColor string) string {
+	columnStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(1, 2).
+		Width(a.width/2 - 4). // Half width minus padding
+		MarginBottom(2)
+
+	var content []string
+	content = append(content, title)
+	content = append(content, "")
+
+	if structure != nil {
+		treeLines := a.renderMGTree(structure, "")
+		content = append(content, treeLines...)
+	} else {
+		content = append(content, "❌ No structure available")
+	}
+
+	return columnStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderCAFComparisonActions() string {
+	actionStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#8B5CF6")).
+		Padding(1, 2)
+
+	var content []string
+	content = append(content, "⚙️ Actions")
+	content = append(content, "")
+
+	itemStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		MarginBottom(1)
+
+	selectedStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		MarginBottom(1).
+		Background(lipgloss.Color("#374151")).
+		Foreground(lipgloss.Color("#F3F4F6"))
+
+	for i, option := range a.cafComparisonOptions {
+		if i == a.selectedItem {
+			content = append(content, selectedStyle.Render("► "+option))
+		} else {
+			content = append(content, itemStyle.Render("  "+option))
+		}
+	}
+
+	return actionStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderCAFConfirmation() string {
+	// Warning section
+	warningSection := a.renderCAFWarning()
+	
+	// Structure details
+	detailsSection := a.renderCAFConfirmationDetails()
+	
+	// Confirmation actions
+	actionSection := a.renderCAFConfirmationActions()
+	
+	return lipgloss.JoinVertical(lipgloss.Left, warningSection, detailsSection, actionSection)
+}
+
+func (a *App) renderCAFWarning() string {
+	warningStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#EF4444")).
+		Padding(1, 2).
+		MarginBottom(2)
+
+	var content []string
+	content = append(content, "⚠️  Confirm CAF Structure Application")
+	content = append(content, "")
+	content = append(content, "🚨 WARNING: This action will modify your Azure management group structure!")
+	content = append(content, "")
+	content = append(content, "📋 What will happen:")
+	content = append(content, "   • Create new management groups according to CAF recommendations")
+	content = append(content, "   • Move existing subscriptions to appropriate management groups")
+	content = append(content, "   • Apply Azure Policy assignments for compliance")
+	content = append(content, "   • Set up RBAC role assignments")
+	content = append(content, "")
+	content = append(content, "💡 This is a MOCK operation - no actual changes will be made")
+
+	return warningStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderCAFConfirmationDetails() string {
+	detailsStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#3B82F6")).
+		Padding(1, 2).
+		MarginBottom(2)
+
+	var content []string
+	
+	// Get selected structure type
+	structureTypes := []string{"Basic CAF", "Enterprise CAF", "Minimal CAF"}
+	selectedType := structureTypes[a.selectedCAFStructure]
+	
+	content = append(content, fmt.Sprintf("📊 Selected Structure: %s", selectedType))
+	content = append(content, "")
+	
+	// Show what will be created
+	if a.azureAuth != nil {
+		structureTypeKeys := []string{"basic", "enterprise", "minimal"}
+		recommendedStructure := a.azureAuth.GetRecommendedCAFStructure(structureTypeKeys[a.selectedCAFStructure])
+		
+		content = append(content, "🏗️ Management Groups to be created:")
+		content = append(content, "")
+		
+		treeLines := a.renderMGTree(recommendedStructure, "")
+		// Limit to first 10 lines to avoid overwhelming the confirmation dialog
+		for i, line := range treeLines {
+			if i >= 10 {
+				content = append(content, "   ... (truncated)")
+				break
+			}
+			content = append(content, line)
+		}
+	}
+
+	return detailsStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderCAFConfirmationActions() string {
+	actionStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#8B5CF6")).
+		Padding(1, 2)
+
+	var content []string
+	content = append(content, "🤔 Are you sure you want to proceed?")
+	content = append(content, "")
+
+	itemStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		MarginBottom(1)
+
+	selectedStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		MarginBottom(1).
+		Background(lipgloss.Color("#374151")).
+		Foreground(lipgloss.Color("#F3F4F6"))
+
+	for i, option := range a.cafConfirmationOptions {
+		if i == a.selectedItem {
+			content = append(content, selectedStyle.Render("► "+option))
+		} else {
+			content = append(content, itemStyle.Render("  "+option))
+		}
+	}
+
+	return actionStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Left, content...),
 	)
 }

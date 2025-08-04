@@ -431,3 +431,266 @@ func (a *AuthInfo) createMockCAFStructure() *ManagementGroupNode {
 
 	return rootMG
 }
+
+func (a *AuthInfo) GetRecommendedCAFStructure(structureType string) *ManagementGroupNode {
+	switch structureType {
+	case "basic":
+		return a.createBasicCAFStructure()
+	case "enterprise":
+		return a.createEnterpriseCAFStructure()
+	case "minimal":
+		return a.createMinimalCAFStructure()
+	default:
+		return a.createBasicCAFStructure()
+	}
+}
+
+func (a *AuthInfo) createBasicCAFStructure() *ManagementGroupNode {
+	// Basic CAF structure (Small-Medium Organizations)
+	rootMG := &ManagementGroupNode{
+		ID:          "mg-tenant-root",
+		Name:        "Tenant Root",
+		DisplayName: "Tenant Root Group",
+		Level:       0,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Platform management group
+	platformMG := &ManagementGroupNode{
+		ID:          "mg-platform",
+		Name:        "Platform",
+		DisplayName: "Platform",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Landing Zones management group  
+	landingZonesMG := &ManagementGroupNode{
+		ID:          "mg-landingzones",
+		Name:        "Landing Zones",
+		DisplayName: "Landing Zones",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Sandbox management group
+	sandboxMG := &ManagementGroupNode{
+		ID:          "mg-sandbox",
+		Name:        "Sandbox",
+		DisplayName: "Sandbox",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Platform sub-groups
+	managementMG := &ManagementGroupNode{
+		ID:          "mg-management",
+		Name:        "Management",
+		DisplayName: "Management",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	connectivityMG := &ManagementGroupNode{
+		ID:          "mg-connectivity",
+		Name:        "Connectivity",
+		DisplayName: "Connectivity", 
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	identityMG := &ManagementGroupNode{
+		ID:          "mg-identity",
+		Name:        "Identity",
+		DisplayName: "Identity",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Landing Zone sub-groups
+	corpMG := &ManagementGroupNode{
+		ID:          "mg-corp",
+		Name:        "Corp",
+		DisplayName: "Corporate",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	onlineMG := &ManagementGroupNode{
+		ID:          "mg-online",
+		Name:        "Online",
+		DisplayName: "Online",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Build the tree
+	platformMG.Children = []*ManagementGroupNode{managementMG, connectivityMG, identityMG}
+	landingZonesMG.Children = []*ManagementGroupNode{corpMG, onlineMG}
+	rootMG.Children = []*ManagementGroupNode{platformMG, landingZonesMG, sandboxMG}
+
+	return rootMG
+}
+
+func (a *AuthInfo) createEnterpriseCAFStructure() *ManagementGroupNode {
+	// Enterprise CAF structure (Large Organizations)
+	rootMG := &ManagementGroupNode{
+		ID:          "mg-tenant-root",
+		Name:        "Tenant Root",
+		DisplayName: "Tenant Root Group",
+		Level:       0,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Platform management group with Security
+	platformMG := &ManagementGroupNode{
+		ID:          "mg-platform",
+		Name:        "Platform",
+		DisplayName: "Platform",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Extended Landing Zones
+	landingZonesMG := &ManagementGroupNode{
+		ID:          "mg-landingzones",
+		Name:        "Landing Zones", 
+		DisplayName: "Landing Zones",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Sandbox and Decommissioned
+	sandboxMG := &ManagementGroupNode{
+		ID:          "mg-sandbox",
+		Name:        "Sandbox",
+		DisplayName: "Sandbox",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	decommissionedMG := &ManagementGroupNode{
+		ID:          "mg-decommissioned",
+		Name:        "Decommissioned",
+		DisplayName: "Decommissioned",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Platform sub-groups (with Security)
+	managementMG := &ManagementGroupNode{
+		ID:          "mg-management",
+		Name:        "Management",
+		DisplayName: "Management",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	connectivityMG := &ManagementGroupNode{
+		ID:          "mg-connectivity",
+		Name:        "Connectivity",
+		DisplayName: "Connectivity",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	identityMG := &ManagementGroupNode{
+		ID:          "mg-identity",
+		Name:        "Identity",
+		DisplayName: "Identity",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	securityMG := &ManagementGroupNode{
+		ID:          "mg-security",
+		Name:        "Security",
+		DisplayName: "Security",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Extended Landing Zone sub-groups
+	corpMG := &ManagementGroupNode{
+		ID:          "mg-corp",
+		Name:        "Corp",
+		DisplayName: "Corporate",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	onlineMG := &ManagementGroupNode{
+		ID:          "mg-online",
+		Name:        "Online", 
+		DisplayName: "Online",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	sapMG := &ManagementGroupNode{
+		ID:          "mg-sap",
+		Name:        "SAP",
+		DisplayName: "SAP",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	avsMG := &ManagementGroupNode{
+		ID:          "mg-avs",
+		Name:        "AVS",
+		DisplayName: "Azure VMware Solution",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Build the tree
+	platformMG.Children = []*ManagementGroupNode{managementMG, connectivityMG, identityMG, securityMG}
+	landingZonesMG.Children = []*ManagementGroupNode{corpMG, onlineMG, sapMG, avsMG}
+	rootMG.Children = []*ManagementGroupNode{platformMG, landingZonesMG, sandboxMG, decommissionedMG}
+
+	return rootMG
+}
+
+func (a *AuthInfo) createMinimalCAFStructure() *ManagementGroupNode {
+	// Minimal CAF structure (Startups/Simple Setups)
+	rootMG := &ManagementGroupNode{
+		ID:          "mg-tenant-root",
+		Name:        "Tenant Root",
+		DisplayName: "Tenant Root Group",
+		Level:       0,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Simplified Platform
+	platformMG := &ManagementGroupNode{
+		ID:          "mg-platform",
+		Name:        "Platform",
+		DisplayName: "Platform",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Simple Landing Zones
+	landingZonesMG := &ManagementGroupNode{
+		ID:          "mg-landingzones",
+		Name:        "Landing Zones",
+		DisplayName: "Landing Zones", 
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Only Corp landing zone
+	corpMG := &ManagementGroupNode{
+		ID:          "mg-corp",
+		Name:        "Corp",
+		DisplayName: "Corporate",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Build minimal tree
+	landingZonesMG.Children = []*ManagementGroupNode{corpMG}
+	rootMG.Children = []*ManagementGroupNode{platformMG, landingZonesMG}
+
+	return rootMG
+}
