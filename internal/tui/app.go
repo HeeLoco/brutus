@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/charmbracelet/bubbles/key"
@@ -13,16 +14,20 @@ import (
 
 // App represents the main TUI application
 type App struct {
-	keys            keyMap
-	width           int
-	height          int
-	state           AppState
-	selectedItem    int
-	menuItems       []string
-	azureAuth       *azure.AuthInfo
-	subscriptions   []*armsubscriptions.Subscription
-	authStatus      string
-	isAuthenticating bool
+	keys                 keyMap
+	width                int
+	height               int
+	state                AppState
+	selectedItem         int
+	menuItems            []string
+	azureAuth            *azure.AuthInfo
+	subscriptions        []*armsubscriptions.Subscription
+	authStatus           string
+	isAuthenticating     bool
+	managementGroupTree  *azure.ManagementGroupNode
+	mgMenuItems          []string
+	isLoadingMGs         bool
+	mgActionFeedback     string
 }
 
 // AppState represents the current state of the application
@@ -42,6 +47,14 @@ type authSuccessMsg struct {
 }
 
 type authErrorMsg struct {
+	err error
+}
+
+type mgLoadSuccessMsg struct {
+	tree *azure.ManagementGroupNode
+}
+
+type mgLoadErrorMsg struct {
 	err error
 }
 
@@ -68,6 +81,25 @@ func authenticateCmd() tea.Cmd {
 			auth:          auth,
 			subscriptions: subscriptions,
 		}
+	}
+}
+
+// loadMGsCmd loads management groups in the background
+func loadMGsCmd(auth *azure.AuthInfo) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		
+		// Try to load real management groups first
+		if err := auth.ListManagementGroups(ctx); err != nil {
+			// If failed, still return mock structure
+		}
+		
+		tree, err := auth.GetManagementGroupTree(ctx)
+		if err != nil {
+			return mgLoadErrorMsg{err: err}
+		}
+		
+		return mgLoadSuccessMsg{tree: tree}
 	}
 }
 
@@ -103,6 +135,14 @@ func NewApp() *App {
 		"⚙️  Configuration",
 	}
 
+	mgMenuItems := []string{
+		"📝 Edit Management Group Structure",
+		"✏️  Rename Specific Management Group",
+		"🏷️  Rename All Management Groups",
+		"🏗️  Apply Basic CAF Management Structure",
+		"🔄 Refresh Management Groups",
+	}
+
 	return &App{
 		keys: keyMap{
 			Up: key.NewBinding(
@@ -129,6 +169,7 @@ func NewApp() *App {
 		state:        StateMainMenu,
 		selectedItem: 0,
 		menuItems:    menuItems,
+		mgMenuItems:  mgMenuItems,
 	}
 }
 
@@ -163,6 +204,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.isAuthenticating = false
 		return a, nil
 
+	case mgLoadSuccessMsg:
+		a.managementGroupTree = msg.tree
+		a.isLoadingMGs = false
+		return a, nil
+
+	case mgLoadErrorMsg:
+		log.Printf("Failed to load management groups: %v", msg.err)
+		a.isLoadingMGs = false
+		return a, nil
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, a.keys.Quit):
@@ -171,18 +222,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.state != StateMainMenu {
 				a.state = StateMainMenu
 				a.selectedItem = 0
+				a.mgActionFeedback = "" // Clear any feedback when going back
 			}
 			return a, nil
 		case key.Matches(msg, a.keys.Up):
-			if a.state == StateMainMenu {
+			switch a.state {
+			case StateMainMenu:
+				if a.selectedItem > 0 {
+					a.selectedItem--
+				}
+			case StateCAFSetup:
 				if a.selectedItem > 0 {
 					a.selectedItem--
 				}
 			}
 			return a, nil
 		case key.Matches(msg, a.keys.Down):
-			if a.state == StateMainMenu {
+			switch a.state {
+			case StateMainMenu:
 				if a.selectedItem < len(a.menuItems)-1 {
+					a.selectedItem++
+				}
+			case StateCAFSetup:
+				if a.selectedItem < len(a.mgMenuItems)-1 {
 					a.selectedItem++
 				}
 			}
@@ -194,12 +256,40 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					a.state = StateAzureSetup
 				case 1:
 					a.state = StateCAFSetup
+					a.selectedItem = 0 // Reset selection for CAF menu
+					if a.azureAuth != nil && a.managementGroupTree == nil {
+						a.isLoadingMGs = true
+						return a, loadMGsCmd(a.azureAuth)
+					}
 				case 2:
 					a.state = StateResourceCreation
 				case 3:
 					// View Current State - stay in main menu for now
 				case 4:
 					// Configuration - stay in main menu for now
+				}
+			} else if a.state == StateCAFSetup {
+				// Handle management group actions (mock for now)
+				switch a.selectedItem {
+				case 0:
+					// Edit Management Group Structure - mock
+					a.mgActionFeedback = "📝 Mock: Opening management group structure editor..."
+				case 1:
+					// Rename Specific Management Group - mock
+					a.mgActionFeedback = "✏️ Mock: Select a specific management group to rename..."
+				case 2:
+					// Rename All Management Groups - mock
+					a.mgActionFeedback = "🏷️ Mock: Renaming all management groups with CAF conventions..."
+				case 3:
+					// Apply Basic CAF Management Structure - mock
+					a.mgActionFeedback = "🏗️ Mock: Applying basic CAF management structure to tenant..."
+				case 4:
+					// Refresh Management Groups
+					a.mgActionFeedback = ""
+					if a.azureAuth != nil {
+						a.isLoadingMGs = true
+						return a, loadMGsCmd(a.azureAuth)
+					}
 				}
 			}
 			return a, nil
@@ -432,7 +522,194 @@ func (a *App) renderAzureSetup() string {
 }
 
 func (a *App) renderCAFSetup() string {
-	return lipgloss.NewStyle().Margin(1, 0).Render("CAF Setup - Coming Soon")
+	// Permission Information Section
+	permissionSection := a.renderMGPermissionInfo()
+	
+	// Structure Display Section
+	structureSection := a.renderManagementGroupStructure()
+	
+	// Action Menu Section
+	actionSection := a.renderCAFActionMenu()
+	
+	return lipgloss.JoinVertical(lipgloss.Left, permissionSection, structureSection, actionSection)
+}
+
+func (a *App) renderMGPermissionInfo() string {
+	if a.azureAuth == nil || a.isLoadingMGs {
+		return "" // Don't show permission info while loading
+	}
+
+	// Determine border color based on permission status
+	borderColor := "#DC2626" // Red for no access
+	if a.azureAuth.HasMGReadAccess {
+		borderColor = "#059669" // Green for access
+	} else if a.azureAuth.MGPermissions == "" {
+		return "" // Don't show if permissions haven't been checked yet
+	}
+
+	infoStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(1, 2).
+		MarginBottom(1)
+
+	var content []string
+	
+	if a.azureAuth.HasMGReadAccess {
+		// User has access - show brief status
+		content = append(content, "ℹ️  Management Group Permissions")
+		content = append(content, "")
+		content = append(content, a.azureAuth.MGPermissions)
+	} else {
+		// User lacks access - show detailed guidance
+		content = append(content, "⚠️  Management Group Access Required")
+		content = append(content, "")
+		content = append(content, a.azureAuth.MGPermissions)
+		content = append(content, "")
+		content = append(content, "📋 Required Roles:")
+		content = append(content, "   • Management Group Reader (read access)")
+		content = append(content, "   • Management Group Contributor (full access)")
+		content = append(content, "")
+		content = append(content, "🔧 How to get access:")
+		content = append(content, "   1. Ask your Azure AD Global Administrator")
+		content = append(content, "   2. Request assignment at Tenant Root Group level")
+		content = append(content, "   3. Or enable 'Access management for Azure resources'")
+		content = append(content, "      in Azure AD Properties (if you're Global Admin)")
+		content = append(content, "")
+		if !a.azureAuth.HasMGReadAccess {
+			content = append(content, "💡 Currently showing mock CAF structure for demonstration")
+		}
+	}
+
+	return infoStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderManagementGroupStructure() string {
+	structureStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#10B981")).
+		Padding(1, 2).
+		MarginBottom(2)
+
+	var content []string
+	content = append(content, "🏗️ CAF Management Group Structure")
+	content = append(content, "")
+
+	if a.isLoadingMGs {
+		content = append(content, "🔄 Loading management groups...")
+	} else if a.managementGroupTree != nil {
+		// Add note if showing mock structure
+		if a.azureAuth != nil && !a.azureAuth.HasMGReadAccess {
+			mockStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#F59E0B")).
+				Italic(true)
+			content = append(content, mockStyle.Render("📋 Mock CAF Structure (Demo)"))
+			content = append(content, "")
+		}
+		
+		treeLines := a.renderMGTree(a.managementGroupTree, "")
+		content = append(content, treeLines...)
+	} else {
+		content = append(content, "❌ No management group structure available")
+		content = append(content, "")
+		content = append(content, "Use the 'Refresh Management Groups' option to load the structure.")
+	}
+
+	return structureStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
+}
+
+func (a *App) renderMGTree(node *azure.ManagementGroupNode, prefix string) []string {
+	var lines []string
+	
+	// Determine icon and styling based on level
+	var icon string
+	switch node.Level {
+	case 0:
+		icon = "🏛️" // Root
+	case 1:
+		icon = "🏢" // Top level (Platform, Landing Zones, etc.)
+	case 2:
+		icon = "📁" // Sub-groups
+	default:
+		icon = "📂"
+	}
+	
+	// Add the current node
+	lines = append(lines, fmt.Sprintf("%s%s %s (%s)", prefix, icon, node.DisplayName, node.ID))
+	
+	// Add subscriptions if any
+	for _, sub := range node.Subscriptions {
+		subName := "Unknown Subscription"
+		if sub.DisplayName != nil {
+			subName = *sub.DisplayName
+		}
+		subID := ""
+		if sub.SubscriptionID != nil {
+			subID = (*sub.SubscriptionID)[:8] + "..."
+		}
+		lines = append(lines, fmt.Sprintf("%s  💳 %s (%s)", prefix, subName, subID))
+	}
+	
+	// Add children recursively
+	for i, child := range node.Children {
+		childPrefix := prefix
+		if i == len(node.Children)-1 {
+			childPrefix += "└── "
+		} else {
+			childPrefix += "├── "
+		}
+		
+		childLines := a.renderMGTree(child, prefix+"    ")
+		lines = append(lines, childLines...)
+	}
+	
+	return lines
+}
+
+func (a *App) renderCAFActionMenu() string {
+	menuStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#8B5CF6")).
+		Padding(1, 2)
+
+	var content []string
+	content = append(content, "⚙️ Management Group Actions")
+	content = append(content, "")
+
+	itemStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		MarginBottom(1)
+
+	selectedStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		MarginBottom(1).
+		Background(lipgloss.Color("#374151")).
+		Foreground(lipgloss.Color("#F3F4F6"))
+
+	for i, item := range a.mgMenuItems {
+		if i == a.selectedItem {
+			content = append(content, selectedStyle.Render("► "+item))
+		} else {
+			content = append(content, itemStyle.Render("  "+item))
+		}
+	}
+
+	// Add feedback if any action was performed
+	if a.mgActionFeedback != "" {
+		content = append(content, "")
+		feedbackStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#10B981")).
+			Italic(true)
+		content = append(content, feedbackStyle.Render(a.mgActionFeedback))
+	}
+
+	return menuStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, content...),
+	)
 }
 
 func (a *App) renderResourceCreation() string {

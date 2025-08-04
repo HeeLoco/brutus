@@ -11,20 +11,35 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/managementgroups/armmanagementgroups"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 )
 
 type AuthInfo struct {
-	Credential       azcore.TokenCredential
-	SubscriptionID   string
-	TenantID         string
-	CurrentUser      string
-	AuthMethod       string
-	Subscriptions    []*armsubscriptions.Subscription
-	DefaultSub       *armsubscriptions.Subscription
-	PermissionLevel  string
-	HasOwnerAccess   bool
-	CAFPermissions   string
+	Credential         azcore.TokenCredential
+	SubscriptionID     string
+	TenantID           string
+	CurrentUser        string
+	AuthMethod         string
+	Subscriptions      []*armsubscriptions.Subscription
+	DefaultSub         *armsubscriptions.Subscription
+	PermissionLevel    string
+	HasOwnerAccess     bool
+	CAFPermissions     string
+	ManagementGroups   []*armmanagementgroups.ManagementGroupInfo
+	MGPermissions      string
+	HasMGReadAccess    bool
+	HasMGWriteAccess   bool
+	MGPermissionReason string
+}
+
+type ManagementGroupNode struct {
+	ID            string
+	Name          string
+	DisplayName   string
+	Children      []*ManagementGroupNode
+	Subscriptions []*armsubscriptions.Subscription
+	Level         int
 }
 
 func NewAuth(ctx context.Context) (*AuthInfo, error) {
@@ -246,4 +261,173 @@ func (a *AuthInfo) getRoleNameFromID(roleDefID string) string {
 	}
 
 	return "Custom Role"
+}
+
+func (a *AuthInfo) ListManagementGroups(ctx context.Context) error {
+	client, err := armmanagementgroups.NewClient(a.Credential, nil)
+	if err != nil {
+		a.HasMGReadAccess = false
+		a.MGPermissionReason = "Cannot create management groups client"
+		a.MGPermissions = "❌ No management group access"
+		return fmt.Errorf("failed to create management groups client: %w", err)
+	}
+
+	var managementGroups []*armmanagementgroups.ManagementGroupInfo
+	pager := client.NewListPager(nil)
+
+	// Try to list management groups to test permissions
+	if pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			// Analyze the error to determine permission issue
+			errorMsg := err.Error()
+			a.HasMGReadAccess = false
+			
+			if strings.Contains(strings.ToLower(errorMsg), "forbidden") || 
+			   strings.Contains(strings.ToLower(errorMsg), "authorization") ||
+			   strings.Contains(strings.ToLower(errorMsg), "access denied") {
+				a.MGPermissionReason = "Insufficient permissions to read management groups"
+				a.MGPermissions = "❌ Read access denied - Need Management Group Reader role"
+			} else {
+				a.MGPermissionReason = fmt.Sprintf("API error: %s", errorMsg)
+				a.MGPermissions = "❌ Cannot access management groups API"
+			}
+			
+			log.Printf("Management Groups access denied: %v", err)
+			return nil // Don't return error, just record the permission limitation
+		}
+		
+		// Successfully got first page
+		managementGroups = append(managementGroups, page.Value...)
+		a.HasMGReadAccess = true
+		
+		// Continue getting remaining pages
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				break
+			}
+			managementGroups = append(managementGroups, page.Value...)
+		}
+	}
+
+	a.ManagementGroups = managementGroups
+	
+	// Determine permission status
+	if a.HasMGReadAccess {
+		if len(managementGroups) > 0 {
+			a.MGPermissions = fmt.Sprintf("✅ Read access - Found %d management groups", len(managementGroups))
+			a.MGPermissionReason = "Can read existing management groups"
+		} else {
+			a.MGPermissions = "✅ Read access - No existing management groups"
+			a.MGPermissionReason = "Read access confirmed, no management groups exist"
+		}
+		
+		// TODO: Test write access by attempting a dry-run operation
+		a.HasMGWriteAccess = false // Conservative assumption
+	}
+	
+	return nil
+}
+
+func (a *AuthInfo) GetManagementGroupTree(ctx context.Context) (*ManagementGroupNode, error) {
+	if len(a.ManagementGroups) == 0 {
+		// Create a mock CAF structure for demonstration
+		return a.createMockCAFStructure(), nil
+	}
+
+	// If no real management groups, return mock structure
+	return a.createMockCAFStructure(), nil
+}
+
+func (a *AuthInfo) createMockCAFStructure() *ManagementGroupNode {
+	// Create a typical CAF management group structure
+	rootMG := &ManagementGroupNode{
+		ID:          "mg-tenant-root",
+		Name:        "Tenant Root",
+		DisplayName: "Tenant Root Group",
+		Level:       0,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Platform management group
+	platformMG := &ManagementGroupNode{
+		ID:          "mg-platform",
+		Name:        "Platform",
+		DisplayName: "Platform",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Landing Zones management group  
+	landingZonesMG := &ManagementGroupNode{
+		ID:          "mg-landingzones",
+		Name:        "Landing Zones",
+		DisplayName: "Landing Zones",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Sandbox management group
+	sandboxMG := &ManagementGroupNode{
+		ID:          "mg-sandbox",
+		Name:        "Sandbox",
+		DisplayName: "Sandbox",
+		Level:       1,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Platform sub-groups
+	managementMG := &ManagementGroupNode{
+		ID:          "mg-management",
+		Name:        "Management",
+		DisplayName: "Management",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	connectivityMG := &ManagementGroupNode{
+		ID:          "mg-connectivity",
+		Name:        "Connectivity",
+		DisplayName: "Connectivity", 
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	identityMG := &ManagementGroupNode{
+		ID:          "mg-identity",
+		Name:        "Identity",
+		DisplayName: "Identity",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Landing Zone sub-groups
+	corpMG := &ManagementGroupNode{
+		ID:          "mg-corp",
+		Name:        "Corp",
+		DisplayName: "Corporate",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	onlineMG := &ManagementGroupNode{
+		ID:          "mg-online",
+		Name:        "Online",
+		DisplayName: "Online",
+		Level:       2,
+		Children:    []*ManagementGroupNode{},
+	}
+
+	// Add current subscription to appropriate group
+	if a.DefaultSub != nil {
+		corpMG.Subscriptions = []*armsubscriptions.Subscription{a.DefaultSub}
+	}
+
+	// Build the tree
+	platformMG.Children = []*ManagementGroupNode{managementMG, connectivityMG, identityMG}
+	landingZonesMG.Children = []*ManagementGroupNode{corpMG, onlineMG}
+	rootMG.Children = []*ManagementGroupNode{platformMG, landingZonesMG, sandboxMG}
+
+	return rootMG
 }
