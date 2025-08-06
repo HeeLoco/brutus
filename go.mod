@@ -2,7 +2,7 @@ module github.com/edgard-ott/brutus
 
 go 1.23.0
 
-toolchain go1.24.5
+toolchain go1.24.6
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.2
